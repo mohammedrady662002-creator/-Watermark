@@ -22,8 +22,10 @@
     <div class="ambient-glow-1"></div>
     <div class="ambient-glow-2"></div>
 
-    <!-- Hidden Offscreen Source Video Element (position fixed offscreen to ensure decoding keeps running) -->
-    <video id="sourceVideo" playsinline preload="auto" style="position:fixed; left:-9999px; top:0; width:1px; height:1px; opacity:0; pointer-events:none;"></video>
+    <!-- Source Video Element (Kept active in viewport with realistic dimensions to prevent Chromium throttling/dropped frames) -->
+    <div style="position:fixed; top:0; left:0; width:320px; height:180px; opacity:0.001; pointer-events:none; z-index:-999; overflow:hidden;">
+      <video id="sourceVideo" playsinline preload="auto" style="width:100%; height:100%; object-fit:contain;"></video>
+    </div>
 
     <!-- Main Application Wrapper -->
     <div class="app-container">
