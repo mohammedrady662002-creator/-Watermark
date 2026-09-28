@@ -307,17 +307,19 @@ function isCanvasOriginClean(context) {
 /**
  * تحميل وتطبيق اللوجو الافتراضي الأصلي PNG من الاستس (PNG فقط وليس SVG)
  */
-function loadDefaultLogo() {
+/**
+ * تحميل وتطبيق اللوجو الافتراضي مباشرة من ملف assets/logo.png في المجلد
+ */
+function loadDefaultLogo(forceRefresh = false) {
   const logoThumb = document.getElementById('logoThumbnailImg');
   const logoStatusBadge = document.getElementById('logoStatusBadge');
   const logoFileName = document.getElementById('logoFileName');
   const logoDimensions = document.getElementById('logoDimensions');
   const resetBtn = document.getElementById('resetDefaultLogoBtn');
   
-  // استخدام صورة PNG الافتراضية المضمنة كـ Data URL نقي 100%
-  const pngDataUrl = (typeof window !== 'undefined' && window.DEFAULT_LOGO_PNG) 
-    ? window.DEFAULT_LOGO_PNG 
-    : 'assets/logo.png';
+  // توليد مسار الملف مع تخطي الكاش لضمان قراءة أي تعديل يجريه المستخدم على assets/logo.png
+  const timestamp = Date.now();
+  const logoPath = `assets/logo.png?t=${timestamp}`;
   
   const img = new Image();
   img.onload = () => {
@@ -327,22 +329,58 @@ function loadDefaultLogo() {
     
     if (logoThumb) logoThumb.src = img.src;
     if (logoStatusBadge) {
-      logoStatusBadge.textContent = 'لوجو PNG جاهز ومطبق ✅';
+      logoStatusBadge.textContent = 'لوجو assets/logo.png مطبق ✅';
       logoStatusBadge.style.color = '#34d399';
     }
-    if (logoFileName) logoFileName.textContent = 'دكان إيلين (افتراضي PNG)';
-    if (logoDimensions) logoDimensions.textContent = `${img.naturalWidth || 400} × ${img.naturalHeight || 400} بكسل (PNG أصلي)`;
+    if (logoFileName) logoFileName.textContent = 'assets/logo.png';
+    if (logoDimensions) logoDimensions.textContent = `${img.naturalWidth} × ${img.naturalHeight} بكسل (PNG)`;
     if (resetBtn) resetBtn.style.display = 'none';
+    
+    if (forceRefresh) {
+      showToast('تمت قراءة وتحديث اللوجو من assets/logo.png بنجاح ✅', 'success');
+    }
     
     // تحديث فوري للكانفس
     if (state.canvas && state.ctx) {
       drawCanvasFrame(state.sourceVideo ? state.sourceVideo.currentTime : 0);
     }
   };
+  
   img.onerror = () => {
-    generateFallbackLogoDataUrl();
+    // في حال عدم دعم البارامترات على بعض متصفحات بروتوكول file:// نطلب المسار المباشر بدون بارامتر
+    const directImg = new Image();
+    directImg.onload = () => {
+      state.logoImg = directImg;
+      state.isLogoLoaded = true;
+      state.isUsingCustomLogo = false;
+      if (logoThumb) logoThumb.src = directImg.src;
+      if (logoStatusBadge) {
+        logoStatusBadge.textContent = 'لوجو assets/logo.png مطبق ✅';
+        logoStatusBadge.style.color = '#34d399';
+      }
+      if (logoFileName) logoFileName.textContent = 'assets/logo.png';
+      if (logoDimensions) logoDimensions.textContent = `${directImg.naturalWidth} × ${directImg.naturalHeight} بكسل (PNG)`;
+      if (resetBtn) resetBtn.style.display = 'none';
+      if (forceRefresh) {
+        showToast('تمت قراءة وتحديث اللوجو من assets/logo.png بنجاح ✅', 'success');
+      }
+      if (state.canvas && state.ctx) {
+        drawCanvasFrame(state.sourceVideo ? state.sourceVideo.currentTime : 0);
+      }
+    };
+    directImg.onerror = () => {
+      if (logoStatusBadge) {
+        logoStatusBadge.textContent = 'يرجى وضع logo.png داخل مجلد assets';
+        logoStatusBadge.style.color = '#f87171';
+      }
+      if (forceRefresh) {
+        showToast('تعذر العثور على ملف assets/logo.png في المجلد', 'error');
+      }
+    };
+    directImg.src = 'assets/logo.png';
   };
-  img.src = pngDataUrl;
+  
+  img.src = logoPath;
 }
 
 /**
@@ -676,15 +714,14 @@ function detectVideoFramerate(video) {
         );
         state.videoFps = closestFps;
         
-        const highestFps = Math.max(60, state.videoFps || 60);
         const exportFpsBadgeText = document.getElementById('exportFpsBadgeText');
         if (exportFpsBadgeText) {
-          exportFpsBadgeText.textContent = `⚡ أعلى FPS (${highestFps} FPS فائقة النعومة)`;
+          exportFpsBadgeText.textContent = `🎯 مطابق للمصدر (${state.videoFps} FPS Match Source)`;
         }
         
         const exportFpsText = document.getElementById('exportFpsText');
         if (exportFpsText) {
-          exportFpsText.textContent = `معدل الإطارات: ${highestFps} FPS (أعلى دقة وسلاسة)`;
+          exportFpsText.textContent = `معدل الإطارات: ${state.videoFps} FPS (تطابق تام مع المصدر 100%)`;
         }
         return;
       }
@@ -772,17 +809,16 @@ function renderFrame() {
   const video = state.sourceVideo;
   
   if (state.isVideoReady && video.readyState >= 2) {
-    let currentTime = video.currentTime;
-    if (!state.isPlaying && !state.isExporting) {
-      // استمرار الحركة بالحساب الزمني حتى لو الفيديو متوقف
-      const now = performance.now() / 1000;
-      currentTime = state.pausedVirtualTimeOffset + now;
-    }
-    
-    drawCanvasFrame(currentTime);
-    
-    // تحديث مؤشر الوقت وشريط التشغيل إذا لم يكن التصدير جارياً
+    // أثناء التصدير، تتولى دالة المزامنة وحدها الرسم بدقة مطلقة لمنع سقوط الفريمات والتجميد
     if (!state.isExporting) {
+      let currentTime = video.currentTime;
+      if (!state.isPlaying) {
+        // استمرار الحركة بالحساب الزمني أثناء توقف الفيديو في المعاينة
+        const now = performance.now() / 1000;
+        currentTime = state.pausedVirtualTimeOffset + now;
+      }
+      
+      drawCanvasFrame(currentTime);
       updateTimelineProgress();
     }
   }
@@ -877,14 +913,14 @@ async function startVideoExport() {
   // إعادة بناء المسار الزمني بنفس البذرة الثابتة تماماً
   generateWaypointsTimeline();
   
-  // تجهيز مجرى الكانفس بأعلى معدل إطارات ممكن (60 FPS لنعومة وسلاسة فائقة، أو أعلى إن كان الفيديو المصدر أكثر)
-  const targetFps = Math.max(60, state.videoFps || 60);
+  // تجهيز مجرى الكانفس بمطابقة تامة مع معدل إطارات المصدر (Match Source) لمنع أي سقوط فريمات أو تجميد
+  const targetFps = state.videoFps || 30;
   const canvasStream = canvas.captureStream(targetFps);
   let finalStream = canvasStream;
   
   const exportFpsText = document.getElementById('exportFpsText');
   if (exportFpsText) {
-    exportFpsText.textContent = `معدل الإطارات: ${targetFps} FPS (أعلى دقة وسلاسة فائقة)`;
+    exportFpsText.textContent = `معدل الإطارات: ${targetFps} FPS (مطابق للمصدر 100%)`;
   }
   
   if (state.audioDestNode && state.audioDestNode.stream) {
@@ -897,17 +933,17 @@ async function startVideoExport() {
     }
   }
   
-  // تجهيز MediaRecorder مع جودة بصرية فائقة ومثالية لتفادي أي سقوط فريمات بأعلى FPS
+  // تجهيز MediaRecorder مع جودة بصرية فائقة ومثالية لتفادي أي سقوط فريمات
   state.recordedChunks = [];
   const selectedMime = detectBestSupportedMimeType();
   state.bestMimeType = selectedMime;
   
-  // حساب معدل بت احترافي يلائم 60 FPS ويمنع أي سقوط فريمات أو اختناق للمشفر
-  let optimalBitrate = 14000000; // 14 Mbps لـ 1080p @ 60fps
+  // حساب معدل بت احترافي متوازن يمنع اختناق المشفر ويضمن سلاسة مطلقة ونقاء كريستالي
+  let optimalBitrate = 7000000; // 7 Mbps لـ 1080p
   if (canvas.width * canvas.height > 1920 * 1080) {
-    optimalBitrate = 26000000; // 26 Mbps لـ 4K @ 60fps
+    optimalBitrate = 14000000; // 14 Mbps لـ 4K
   } else if (canvas.width * canvas.height <= 1280 * 720) {
-    optimalBitrate = 8000000;  // 8 Mbps لـ 720p @ 60fps
+    optimalBitrate = 3800000;  // 3.8 Mbps لـ 720p
   }
   
   let recorder;
@@ -947,7 +983,8 @@ async function startVideoExport() {
     finishExport(true);
   };
   
-  // مزامنة فريمات الفيديو مع مخرجات مفكك التشفير الحقيقية مباشرة
+  // مزامنة فريمات الفيديو مع مخرجات مفكك التشفير الحقيقية مباشرة دون تداخل
+  let exportAnimFrameId = null;
   const syncExportFrames = (now, metadata) => {
     if (!state.isExporting) return;
     drawCanvasFrame(metadata.mediaTime);
@@ -956,9 +993,37 @@ async function startVideoExport() {
     }
   };
   
+  const fallbackExportFrames = () => {
+    if (!state.isExporting) return;
+    drawCanvasFrame(video.currentTime);
+    if (!video.ended && !video.paused) {
+      exportAnimFrameId = requestAnimationFrame(fallbackExportFrames);
+    }
+  };
+  
   // إيقاف تشغيل الفيديو والرجوع للثانية 0
   video.pause();
   video.currentTime = 0;
+  
+  let isEndedHandled = false;
+  let progressTimer = null;
+  
+  const onEnded = () => {
+    if (isEndedHandled) return;
+    isEndedHandled = true;
+    
+    video.removeEventListener('ended', onEnded);
+    if (progressTimer) clearInterval(progressTimer);
+    if (exportAnimFrameId) cancelAnimationFrame(exportAnimFrameId);
+    
+    document.getElementById('exportStatusText').textContent = 'جاري إنهاء وتفريغ الملف بجودة مطابقة للمصدر...';
+    
+    setTimeout(() => {
+      if (recorder.state !== 'inactive') {
+        recorder.stop();
+      }
+    }, 250);
+  };
   
   const onSeeked = () => {
     video.removeEventListener('seeked', onSeeked);
@@ -966,23 +1031,25 @@ async function startVideoExport() {
     // رسم الفريم الأول فوراً عند الزمن 0
     drawCanvasFrame(0);
     
-    // مهلة استقرار قصيرة 100ms لضمان استقرار المشفر ومطابقة الفريمات
+    // مهلة استقرار 150ms لضمان استقرار المشفر وبدء التسجيل بدون تقطيع
     setTimeout(() => {
       state.exportStartTime = performance.now();
-      recorder.start(1000); // 1000ms لتقليل الضغط على المعالج وتفادي تقطيع الفريمات
+      recorder.start(500); // تفريغ القطع كل 500ms بانتظام
       
       if ('requestVideoFrameCallback' in video) {
         video.requestVideoFrameCallback(syncExportFrames);
+      } else {
+        exportAnimFrameId = requestAnimationFrame(fallbackExportFrames);
       }
       
       video.play().catch((err) => {
         showToast(`تعذر تشغيل الفيديو تلقائياً: ${err.message}`, 'error');
         finishExport(false);
       });
-    }, 100);
+    }, 150);
     
     // متابعة التقدم كل 250ms
-    const progressTimer = setInterval(() => {
+    progressTimer = setInterval(() => {
       if (!state.isExporting) {
         clearInterval(progressTimer);
         return;
@@ -991,6 +1058,12 @@ async function startVideoExport() {
       const current = video.currentTime;
       const duration = video.duration || 1;
       const percent = Math.min(100, Math.max(0, (current / duration) * 100));
+      
+      // تفقد الوصول لنهاية الفيديو في حال تأخر حدث ended
+      if (current >= duration - 0.06 && duration > 0.5) {
+        onEnded();
+        return;
+      }
       
       // حساب الحجم الكلي المسجل
       let totalBytes = 0;
@@ -1018,21 +1091,6 @@ async function startVideoExport() {
   };
   
   video.addEventListener('seeked', onSeeked);
-  
-  // عند انتهاء الفيديو أثناء التصدير
-  const onEnded = () => {
-    video.removeEventListener('ended', onEnded);
-    
-    document.getElementById('exportStatusText').textContent = 'جاري تفريغ الإطارات الأخيرة وتجهيز الملف...';
-    
-    // مهلة صغيرة لتفريغ آخر الإطارات المتبقية
-    setTimeout(() => {
-      if (recorder.state !== 'inactive') {
-        recorder.stop();
-      }
-    }, CONFIG.export.endDelayMs);
-  };
-  
   video.addEventListener('ended', onEnded);
 }
 
@@ -1287,13 +1345,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
+  // زر تحديث وقراءة assets/logo.png من المجلد
+  const reloadAssetsLogoBtn = document.getElementById('reloadAssetsLogoBtn');
+  if (reloadAssetsLogoBtn) {
+    reloadAssetsLogoBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      loadDefaultLogo(true);
+    });
+  }
+
   // زر استعادة لوجو PNG الافتراضي
   const resetDefaultLogoBtn = document.getElementById('resetDefaultLogoBtn');
   if (resetDefaultLogoBtn) {
     resetDefaultLogoBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      loadDefaultLogo();
-      showToast('تمت استعادة لوجو دكان إيلين PNG الافتراضي ✅', 'success');
+      loadDefaultLogo(true);
+      showToast('تمت استعادة لوجو assets/logo.png الافتراضي ✅', 'success');
     });
   }
   
