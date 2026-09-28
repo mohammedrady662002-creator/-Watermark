@@ -185,13 +185,11 @@ body {
   border-radius: var(--radius-card);
   padding: 22px;
   margin-bottom: 20px;
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease;
 }
 
 .glass-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.16);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
 .glass-card:last-child {

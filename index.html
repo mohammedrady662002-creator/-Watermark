@@ -340,53 +340,7 @@
 
     </div>
 
-    <!-- Export Confirmation Modal -->
-    <div class="modal-overlay" id="exportConfirmModal">
-      <div class="modal-content">
-        <h3 class="modal-title">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tiktok-cyan)" stroke-width="2">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-          </svg>
-          <span>تأكيد تصدير الفيديو</span>
-        </h3>
-        
-        <p style="color:var(--text-secondary); font-size:0.92rem; margin-bottom:14px;">
-          سيتم تشغيل الفيديو من البداية وتسجيله إطارًا بإطار مع العلامة المائية وتوقيع تيك توك بدقة متطابقة.
-        </p>
 
-        <div class="modal-info-list">
-          <div class="modal-info-item">
-            <span class="modal-info-label">اسم الملف المصدر:</span>
-            <span class="modal-info-value" id="modalVideoName">video.mp4</span>
-          </div>
-          <div class="modal-info-item">
-            <span class="modal-info-label">مدة الفيديو:</span>
-            <span class="modal-info-value" id="modalVideoDuration">00:00</span>
-          </div>
-          <div class="modal-info-item">
-            <span class="modal-info-label">أبعاد التصدير:</span>
-            <span class="modal-info-value" id="modalVideoDim">1920 × 1080</span>
-          </div>
-          <div class="modal-info-item">
-            <span class="modal-info-label">صيغة التشفير:</span>
-            <span class="modal-info-value" id="modalVideoFormat">video/mp4</span>
-          </div>
-          <div class="modal-info-item">
-            <span class="modal-info-label">طريقة الحفظ:</span>
-            <span class="modal-info-value" style="color:#10b981;">تنزيل فوري ومباشر دون نوافذ اختيار مجلد</span>
-          </div>
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="btn-primary" id="confirmStartExportBtn">
-            ابدأ التصدير الآن
-          </button>
-          <button type="button" class="btn-secondary" id="cancelExportModalBtn">
-            إلغاء
-          </button>
-        </div>
-      </div>
-    </div>
 
     <!-- Toast Notification Container -->
     <div class="toast-container" id="toastContainer"></div>

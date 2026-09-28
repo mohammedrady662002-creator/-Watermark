@@ -293,30 +293,27 @@ function loadDefaultLogo() {
   const logoStatusBadge = document.getElementById('logoStatusBadge');
   const logoFileName = document.getElementById('logoFileName');
   const logoDimensions = document.getElementById('logoDimensions');
+  const dropzone = document.getElementById('logoDropzone');
   
-  if (window.location.protocol === 'file:') {
-    logoStatusBadge.textContent = 'بانتظار اختيارك';
-    logoStatusBadge.style.color = '#fbbf24';
-    return;
-  }
+  // 1. تفعيل وتطبيق اللوجو الافتراضي فوراً وبشكل مضمون ليعمل على الكانفس تلقائياً
+  generateFallbackLogoDataUrl();
   
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.onload = () => {
-    state.logoImg = img;
+  // 2. التحقق من وجود ملف assets/logo.png إذا وضعه المستخدم في المجلد
+  const userImg = new Image();
+  userImg.onload = () => {
+    state.logoImg = userImg;
     state.isLogoLoaded = true;
-    logoThumb.src = img.src;
-    logoStatusBadge.textContent = 'تم تحميل الافتراضي';
+    logoThumb.src = userImg.src;
+    logoStatusBadge.textContent = 'لوجو assets/logo.png مطبق ✅';
     logoStatusBadge.style.color = '#34d399';
-    logoFileName.textContent = 'assets/logo.png (الافتراضي)';
-    logoDimensions.textContent = `${img.naturalWidth} × ${img.naturalHeight} بكسل`;
-    document.getElementById('logoDropzone').classList.add('filled');
+    logoFileName.textContent = 'assets/logo.png (الافتراضي الخاص بك)';
+    logoDimensions.textContent = `${userImg.naturalWidth} × ${userImg.naturalHeight} بكسل`;
+    dropzone.classList.add('filled');
   };
-  img.onerror = () => {
-    // لو لم يتم العثور على assets/logo.png ننشئ لوجو ناعم ديناميكي
-    generateFallbackLogoDataUrl();
+  userImg.onerror = () => {
+    // اللوجو الافتراضي يظل نشطاً ومطبقاً دائماً
   };
-  img.src = CONFIG.watermark.defaultPath;
+  userImg.src = 'assets/logo.png?v=' + Date.now();
 }
 
 /**
@@ -1345,33 +1342,15 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   
   // -------------------------------------------------------------
-  // نافذة تأكيد التصدير
   // -------------------------------------------------------------
-  const modal = document.getElementById('exportConfirmModal');
+  // تصدير الفيديو مباشرة وفوراً عند الضغط دون أي نوافذ تأكيد
+  // -------------------------------------------------------------
   const openExportBtn = document.getElementById('openExportModalBtn');
-  const cancelExportBtn = document.getElementById('cancelExportModalBtn');
-  const confirmStartBtn = document.getElementById('confirmStartExportBtn');
   
   openExportBtn.addEventListener('click', () => {
     if (!state.isVideoReady) return;
     
-    document.getElementById('modalVideoName').textContent = `${state.originalVideoName}`;
-    document.getElementById('modalVideoDuration').textContent = formatTime(state.sourceVideo.duration);
-    document.getElementById('modalVideoDim').textContent = `${state.canvas.width} × ${state.canvas.height} (دقة أصلية 100% @ ${state.videoFps || 30} FPS)`;
-    document.getElementById('modalVideoFormat').textContent = state.bestMimeType;
-    
-    modal.classList.add('active');
-  });
-  
-  cancelExportBtn.addEventListener('click', () => {
-    modal.classList.remove('active');
-  });
-  
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) modal.classList.remove('active');
-  });
-  
-  confirmStartBtn.addEventListener('click', () => {
+    // بدء التصدير فوراً دون إظهار أي نافذة منبثقة
     startVideoExport();
   });
   
