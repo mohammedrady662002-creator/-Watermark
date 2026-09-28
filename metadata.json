@@ -1,0 +1,6 @@
+{
+  "name": "علامة مائية متحركة",
+  "description": "تطبيق ويب لدمج علامة مائية متحركة بأسلوب توقيع تيك توك على الفيديو مع معاينة حية وتصدير فوري بدون مكتبات خارجية.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
