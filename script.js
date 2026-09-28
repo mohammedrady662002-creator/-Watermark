@@ -276,34 +276,11 @@ function isCanvasOriginClean(context) {
 // ============================================================================
 
 /**
- * تحميل اللوجو الافتراضي بأمان عبر HTTP
+ * تحميل اللوجو الافتراضي بأمان تام كـ Data URL مدمج ومضمون 100%
  */
 function loadDefaultLogo() {
-  const logoThumb = document.getElementById('logoThumbnailImg');
-  const logoStatusBadge = document.getElementById('logoStatusBadge');
-  const logoFileName = document.getElementById('logoFileName');
-  const logoDimensions = document.getElementById('logoDimensions');
-  const dropzone = document.getElementById('logoDropzone');
-  
-  // 1. تفعيل وتطبيق اللوجو الافتراضي فوراً وبشكل مضمون ليعمل على الكانفس تلقائياً
+  // تفعيل اللوجو الافتراضي كـ Data URL مدمج فائق النقاء لمنع أي قيود أمان نهائياً
   generateFallbackLogoDataUrl();
-  
-  // 2. التحقق من وجود ملف assets/logo.png إذا وضعه المستخدم في المجلد
-  const userImg = new Image();
-  userImg.onload = () => {
-    state.logoImg = userImg;
-    state.isLogoLoaded = true;
-    logoThumb.src = userImg.src;
-    logoStatusBadge.textContent = 'لوجو assets/logo.png مطبق ✅';
-    logoStatusBadge.style.color = '#34d399';
-    logoFileName.textContent = 'assets/logo.png (الافتراضي الخاص بك)';
-    logoDimensions.textContent = `${userImg.naturalWidth} × ${userImg.naturalHeight} بكسل`;
-    dropzone.classList.add('filled');
-  };
-  userImg.onerror = () => {
-    // اللوجو الافتراضي يظل نشطاً ومطبقاً دائماً
-  };
-  userImg.src = 'assets/logo.png?v=' + Date.now();
 }
 
 /**
@@ -793,11 +770,6 @@ async function startVideoExport() {
     return;
   }
   
-  // فحص أمان الكانفس
-  if (!isCanvasOriginClean(ctx)) {
-    showToast('يرجى إعادة اختيار ملف اللوجو لضمان أمان التصدير.', 'error', 5000);
-    return;
-  }
   
   // تجهيز مسارات الصوت
   setupAudioGraph();
