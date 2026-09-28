@@ -567,7 +567,7 @@ function loadDemoVideoClip() {
     dCtx.fillStyle = '#ffffff';
     dCtx.font = 'bold 54px Tajawal, sans-serif';
     dCtx.textAlign = 'center';
-    dCtx.fillText('فيديو تجريبي - علامة مائية متحركة', 540, 510);
+    dCtx.fillText('فيديو تجريبي - Rady Watermark', 540, 510);
     
     dCtx.fillStyle = '#25f4ee';
     dCtx.font = 'bold 36px Tajawal, sans-serif';
@@ -584,7 +584,7 @@ function loadDemoVideoClip() {
 // 8. ضبط أبعاد الكانفس وكشف معدل الإطارات (FPS) لمطابقة الجودة الأصلية 100%
 // ============================================================================
 /**
- * كشف وقياس معدل إطارات الفيديو (FPS) الأصلي لمطابقته بدقة عند التصدير
+ * كشف وقياس معدل إطارات الفيديو (FPS) الأصلي وضمان التصدير بأعلى FPS
  */
 function detectVideoFramerate(video) {
   state.videoFps = 30; // قيمة مبدئية
@@ -610,9 +610,15 @@ function detectVideoFramerate(video) {
         );
         state.videoFps = closestFps;
         
+        const highestFps = Math.max(60, state.videoFps || 60);
+        const exportFpsBadgeText = document.getElementById('exportFpsBadgeText');
+        if (exportFpsBadgeText) {
+          exportFpsBadgeText.textContent = `⚡ أعلى FPS (${highestFps} FPS فائقة النعومة)`;
+        }
+        
         const exportFpsText = document.getElementById('exportFpsText');
         if (exportFpsText) {
-          exportFpsText.textContent = `معدل الإطارات: ${state.videoFps} FPS (مطابق للمصدر)`;
+          exportFpsText.textContent = `معدل الإطارات: ${highestFps} FPS (أعلى دقة وسلاسة)`;
         }
         return;
       }
@@ -795,14 +801,14 @@ async function startVideoExport() {
   // إعادة بناء المسار الزمني بنفس البذرة الثابتة تماماً
   generateWaypointsTimeline();
   
-  // تجهيز مجرى الكانفس بنفس عدد الفريمات الأصلية + مجرى الصوت
-  const targetFps = state.videoFps || 30;
+  // تجهيز مجرى الكانفس بأعلى معدل إطارات ممكن (60 FPS لنعومة وسلاسة فائقة، أو أعلى إن كان الفيديو المصدر أكثر)
+  const targetFps = Math.max(60, state.videoFps || 60);
   const canvasStream = canvas.captureStream(targetFps);
   let finalStream = canvasStream;
   
   const exportFpsText = document.getElementById('exportFpsText');
   if (exportFpsText) {
-    exportFpsText.textContent = `معدل الإطارات: ${targetFps} FPS (تطابق تام مع المصدر)`;
+    exportFpsText.textContent = `معدل الإطارات: ${targetFps} FPS (أعلى دقة وسلاسة فائقة)`;
   }
   
   if (state.audioDestNode && state.audioDestNode.stream) {
@@ -815,19 +821,17 @@ async function startVideoExport() {
     }
   }
   
-  // تجهيز MediaRecorder مع جودة بصرية فائقة ومثالية لتفادي أي سقوط فريمات
+  // تجهيز MediaRecorder مع جودة بصرية فائقة ومثالية لتفادي أي سقوط فريمات بأعلى FPS
   state.recordedChunks = [];
   const selectedMime = detectBestSupportedMimeType();
   state.bestMimeType = selectedMime;
   
-  // حساب معدل بت احترافي يضمن دقة كريستالية مطابقة للمصدر ويمنع أي سقوط فريمات أو اختناق للمشفر
-  let optimalBitrate = 9500000; // 9.5 Mbps لـ 1080p
+  // حساب معدل بت احترافي يلائم 60 FPS ويمنع أي سقوط فريمات أو اختناق للمشفر
+  let optimalBitrate = 14000000; // 14 Mbps لـ 1080p @ 60fps
   if (canvas.width * canvas.height > 1920 * 1080) {
-    optimalBitrate = 18000000; // 18 Mbps لـ 4K
-  } else if (targetFps >= 50) {
-    optimalBitrate = 13000000; // 13 Mbps لـ 60fps
+    optimalBitrate = 26000000; // 26 Mbps لـ 4K @ 60fps
   } else if (canvas.width * canvas.height <= 1280 * 720) {
-    optimalBitrate = 5500000;  // 5.5 Mbps لـ 720p
+    optimalBitrate = 8000000;  // 8 Mbps لـ 720p @ 60fps
   }
   
   let recorder;
