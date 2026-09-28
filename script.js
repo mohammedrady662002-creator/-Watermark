@@ -257,18 +257,8 @@ function updateMimeChip() {
 }
 
 // ============================================================================
-// 6. قسم الأمان وفحص تلوين الكانفس (file:// and Taint Security)
+// 6. فحص أمان الكانفس (Canvas Origin Clean Check)
 // ============================================================================
-function checkFileProtocolSecurity() {
-  const alertEl = document.getElementById('fileProtocolAlert');
-  if (window.location.protocol === 'file:') {
-    alertEl.classList.add('show');
-    showToast('تنبيه: أنت تعمل عبر file://. يرجى اختيار اللوجو يدويًا أو تشغيل start.bat', 'info', 6000);
-  } else {
-    alertEl.classList.remove('show');
-  }
-}
-
 /**
  * فحص هل الكانفس آمن وغير ملوث قبل بدء التصدير
  */
@@ -803,14 +793,11 @@ async function startVideoExport() {
     return;
   }
   
-  // فحص أمان الكانفس الإجباري
+  // فحص أمان الكانفس
   if (!isCanvasOriginClean(ctx)) {
-    showToast('الكانفس ملوّث بسبب قيود الأمان لمتصفح الملفات. افتح البرنامج عبر start.bat وليس بدبل كليك.', 'error', 7000);
+    showToast('يرجى إعادة اختيار ملف اللوجو لضمان أمان التصدير.', 'error', 5000);
     return;
   }
-  
-  // إغلاق نافذة التأكيد
-  document.getElementById('exportConfirmModal').classList.remove('active');
   
   // تجهيز مسارات الصوت
   setupAudioGraph();
@@ -1158,10 +1145,6 @@ document.addEventListener('DOMContentLoaded', () => {
   state.sourceVideo = document.getElementById('sourceVideo');
   state.canvas = document.getElementById('previewCanvas');
   state.ctx = state.canvas.getContext('2d', { willReadFrequently: true });
-  
-  // فحص بيئة الأمان
-  checkFileProtocolSecurity();
-  
   // فحص صيغ التسجيل وتحديث الشارة
   updateMimeChip();
   
