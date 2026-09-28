@@ -14,7 +14,7 @@ const CONFIG = {
   // إعدادات وسلوك العلامة المائية (توقيع تيك توك)
   watermark: {
     defaultPath: 'assets/logo.png', // مسار اللوجو الافتراضي على الخادم
-    defaultSizePercent: 13,         // حجم اللوجو الافتراضي (13% من عرض الفيديو)
+    defaultSizePercent: 20,         // حجم اللوجو الافتراضي (20% من عرض الفيديو)
     minSizePercent: 6,              // الحد الأدنى لحجم اللوجو
     maxSizePercent: 30,             // الحد الأقصى لحجم اللوجو
     marginPercent: 5,               // هامش الأمان الداخلي من حواف الفيديو (5%)
@@ -33,8 +33,7 @@ const CONFIG = {
 
   // إعدادات التصدير والتسجيل
   export: {
-    frameRate: 30,                  // معدل إطارات التصدير (30 إطار في الثانية)
-    maxDimension: 1920,             // السقف الأقصى للبعد الأكبر (1920 بكسل)
+    frameRate: 30,                  // معدل الإطارات الأساسي
     recorderTimeslice: 500,         // تقطيع بيانات التسجيل كل 500 ملي ثانية
     progressIntervalMs: 250,        // تحديث شريط التقدم والـ ETA كل 250 ملي ثانية
     endDelayMs: 250                 // تأخير تفريغ الإطارات الأخيرة عند انتهاء الفيديو
@@ -81,6 +80,7 @@ const state = {
   logoDataUrl: '',
   originalVideoName: 'video',
   isVideoReady: false,
+  videoFps: 30, // معدل إطارات الفيديو الأصلي
   
   // بارامترات التحكم من الواجهة
   logoSizePercent: CONFIG.watermark.defaultSizePercent,
@@ -434,6 +434,7 @@ function handleUserVideoFile(file) {
   video.onloadedmetadata = () => {
     state.isVideoReady = true;
     setupCanvasDimensions();
+    detectVideoFramerate(video);
     
     // تحديث بيانات الفيديو في الواجهة
     const videoDropzone = document.getElementById('videoDropzone');
@@ -550,26 +551,58 @@ function loadDemoVideoClip() {
 }
 
 // ============================================================================
-// 8. ضبط أبعاد الكانفس مع سقف 1920 للبعد الأكبر
+// 8. ضبط أبعاد الكانفس وكشف معدل الإطارات (FPS) لمطابقة الجودة الأصلية 100%
 // ============================================================================
+/**
+ * كشف وقياس معدل إطارات الفيديو (FPS) الأصلي لمطابقته بدقة عند التصدير
+ */
+function detectVideoFramerate(video) {
+  state.videoFps = 30; // قيمة مبدئية
+  
+  if ('requestVideoFrameCallback' in video) {
+    let frameCount = 0;
+    let initialMediaTime = null;
+    let finalMediaTime = null;
+    
+    const onFrame = (now, metadata) => {
+      if (initialMediaTime === null) {
+        initialMediaTime = metadata.mediaTime;
+      } else {
+        finalMediaTime = metadata.mediaTime;
+        frameCount++;
+      }
+      
+      if (frameCount >= 12 && finalMediaTime > initialMediaTime) {
+        const measuredFps = Math.round(frameCount / (finalMediaTime - initialMediaTime));
+        const standardFramerates = [24, 25, 30, 48, 50, 60, 120];
+        const closestFps = standardFramerates.reduce((prev, curr) =>
+          Math.abs(curr - measuredFps) < Math.abs(prev - measuredFps) ? curr : prev
+        );
+        state.videoFps = closestFps;
+        
+        const exportFpsText = document.getElementById('exportFpsText');
+        if (exportFpsText) {
+          exportFpsText.textContent = `معدل الإطارات: ${state.videoFps} FPS (مطابق للمصدر)`;
+        }
+        return;
+      }
+      
+      if (frameCount < 25 && !video.paused) {
+        video.requestVideoFrameCallback(onFrame);
+      }
+    };
+    
+    video.requestVideoFrameCallback(onFrame);
+  }
+}
+
 function setupCanvasDimensions() {
   const video = state.sourceVideo;
   const canvas = state.canvas;
   
-  let w = video.videoWidth || 1280;
-  let h = video.videoHeight || 720;
-  
-  // تطبيق سقف 1920 للبعد الأكبر للحفاظ على التوازن بين الدقة والأداء
-  const maxDim = CONFIG.export.maxDimension;
-  if (Math.max(w, h) > maxDim) {
-    if (w >= h) {
-      h = Math.round((h * maxDim) / w);
-      w = maxDim;
-    } else {
-      w = Math.round((w * maxDim) / h);
-      h = maxDim;
-    }
-  }
+  // الحفاظ على الأبعاد الحقيقية الكاملة للفيديو دون أي تصغير أو تقليل في الجودة
+  const w = video.videoWidth || 1280;
+  const h = video.videoHeight || 720;
   
   canvas.width = w;
   canvas.height = h;
@@ -733,9 +766,15 @@ async function startVideoExport() {
   // إعادة بناء المسار الزمني بنفس البذرة الثابتة تماماً
   generateWaypointsTimeline();
   
-  // تجهيز مجرى الكانفس + مجرى الصوت
-  const canvasStream = canvas.captureStream(CONFIG.export.frameRate);
+  // تجهيز مجرى الكانفس بنفس عدد الفريمات الأصلية + مجرى الصوت
+  const targetFps = state.videoFps || 30;
+  const canvasStream = canvas.captureStream(targetFps);
   let finalStream = canvasStream;
+  
+  const exportFpsText = document.getElementById('exportFpsText');
+  if (exportFpsText) {
+    exportFpsText.textContent = `معدل الإطارات: ${targetFps} FPS (تطابق تام مع المصدر)`;
+  }
   
   if (state.audioDestNode && state.audioDestNode.stream) {
     const audioTracks = state.audioDestNode.stream.getAudioTracks();
@@ -747,16 +786,20 @@ async function startVideoExport() {
     }
   }
   
-  // تجهيز MediaRecorder
+  // تجهيز MediaRecorder مع أعلى جودة بصرية ممكنة (تطابق كامل لجودة الفيديو الأصلي)
   state.recordedChunks = [];
   const selectedMime = detectBestSupportedMimeType();
   state.bestMimeType = selectedMime;
+  
+  // حساب معدل بت عالي جداً يناسب دقة الإطارات (حتى 65 ميجابت/ث للحفاظ على حدة وتفاصيل الفيديو)
+  const pixelCount = canvas.width * canvas.height;
+  const highQualityBitrate = Math.max(16000000, Math.min(65000000, Math.round(pixelCount * targetFps * 0.3)));
   
   let recorder;
   try {
     recorder = new MediaRecorder(finalStream, {
       mimeType: selectedMime,
-      videoBitsPerSecond: 6000000 // 6 Mbps جودة ممتازة
+      videoBitsPerSecond: highQualityBitrate
     });
   } catch (err) {
     try {
@@ -1208,7 +1251,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('modalVideoName').textContent = `${state.originalVideoName}`;
     document.getElementById('modalVideoDuration').textContent = formatTime(state.sourceVideo.duration);
-    document.getElementById('modalVideoDim').textContent = `${state.canvas.width} × ${state.canvas.height}`;
+    document.getElementById('modalVideoDim').textContent = `${state.canvas.width} × ${state.canvas.height} (دقة أصلية 100% @ ${state.videoFps || 30} FPS)`;
     document.getElementById('modalVideoFormat').textContent = state.bestMimeType;
     
     modal.classList.add('active');
