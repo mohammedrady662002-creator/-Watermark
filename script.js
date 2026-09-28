@@ -88,6 +88,13 @@ const state = {
   pulseSpeedMultiplier: 1.0,
   maxPulseAlpha: CONFIG.watermark.defaultMaxPulseAlpha,
   
+  // بارامترات الاستوديو الإبداعي الجديد
+  movementPath: 'random', // 'random' | 'corners' | 'drift'
+  glowIntensity: 40,      // نسبة الظل والتوهج 0 - 100
+  tiltMaxAngle: 8,        // أقصى زاوية ميلان بالدرجات
+  activePreset: 'classic',
+  isUsingCustomLogo: false,
+  
   // المسار الزمني المحسوب مسبقًا للنقاط (Waypoints Timeline)
   waypoints: [],
   
@@ -124,6 +131,14 @@ function generateWaypointsTimeline() {
   let curY = 0.5;
   let curRot = 0;
   let curScale = 1.0;
+  let cornerIdx = 0;
+  
+  const cornerPositions = [
+    { x: 0.10, y: 0.10 }, // أعلى اليمين (RTL)
+    { x: 0.90, y: 0.88 }, // أسفل اليسار
+    { x: 0.90, y: 0.10 }, // أعلى اليسار
+    { x: 0.10, y: 0.88 }  // أسفل اليمين
+  ];
   
   while (curTime < maxTime) {
     // حساب المدة بين الانتقالات (Dwell duration)
@@ -135,14 +150,28 @@ function generateWaypointsTimeline() {
     const transitDuration = CONFIG.watermark.minTransitDuration + rng() * (CONFIG.watermark.maxTransitDuration - CONFIG.watermark.minTransitDuration);
     const transitEnd = dwellEnd + transitDuration;
     
-    // موقع عشوائي جديد داخل النطاق الآمن (0 إلى 1 كنِسَب مئوية)
-    const nextX = rng();
-    const nextY = rng();
+    // موقع جديد حسب مسار الحركة المحدد
+    let nextX, nextY;
+    if (state.movementPath === 'corners') {
+      const c = cornerPositions[cornerIdx % cornerPositions.length];
+      cornerIdx++;
+      nextX = Math.max(0.06, Math.min(0.94, c.x + (rng() * 0.08 - 0.04)));
+      nextY = Math.max(0.06, Math.min(0.94, c.y + (rng() * 0.08 - 0.04)));
+    } else if (state.movementPath === 'drift') {
+      const angle = (curTime * 0.45) + rng() * 0.4;
+      nextX = 0.5 + 0.38 * Math.cos(angle);
+      nextY = 0.5 + 0.38 * Math.sin(angle * 1.35);
+    } else {
+      // عشوائي تيك توك ذكي
+      nextX = rng();
+      nextY = rng();
+    }
     
-    // زاوية دوران عشوائية بين -15 و +15 درجة
-    const nextRot = (CONFIG.watermark.rotationMinDeg + rng() * (CONFIG.watermark.rotationMaxDeg - CONFIG.watermark.rotationMinDeg)) * (Math.PI / 180);
+    // زاوية دوران ديناميكية حسب الميلان المحدد
+    const tiltDeg = (rng() * 2 - 1) * state.tiltMaxAngle;
+    const nextRot = tiltDeg * (Math.PI / 180);
     
-    // مقياس حجم عشوائي بين 0.90 و 1.15
+    // مقياس حجم عشوائي بين 0.92 و 1.12
     const nextScale = CONFIG.watermark.scaleVariationMin + rng() * (CONFIG.watermark.scaleVariationMax - CONFIG.watermark.scaleVariationMin);
     
     waypoints.push({
@@ -276,11 +305,44 @@ function isCanvasOriginClean(context) {
 // ============================================================================
 
 /**
- * تحميل اللوجو الافتراضي بأمان تام كـ Data URL مدمج ومضمون 100%
+ * تحميل وتطبيق اللوجو الافتراضي الأصلي PNG من الاستس (PNG فقط وليس SVG)
  */
 function loadDefaultLogo() {
-  // تفعيل اللوجو الافتراضي كـ Data URL مدمج فائق النقاء لمنع أي قيود أمان نهائياً
-  generateFallbackLogoDataUrl();
+  const logoThumb = document.getElementById('logoThumbnailImg');
+  const logoStatusBadge = document.getElementById('logoStatusBadge');
+  const logoFileName = document.getElementById('logoFileName');
+  const logoDimensions = document.getElementById('logoDimensions');
+  const resetBtn = document.getElementById('resetDefaultLogoBtn');
+  
+  // استخدام صورة PNG الافتراضية المضمنة كـ Data URL نقي 100%
+  const pngDataUrl = (typeof window !== 'undefined' && window.DEFAULT_LOGO_PNG) 
+    ? window.DEFAULT_LOGO_PNG 
+    : 'assets/logo.png';
+  
+  const img = new Image();
+  img.onload = () => {
+    state.logoImg = img;
+    state.isLogoLoaded = true;
+    state.isUsingCustomLogo = false;
+    
+    if (logoThumb) logoThumb.src = img.src;
+    if (logoStatusBadge) {
+      logoStatusBadge.textContent = 'لوجو PNG جاهز ومطبق ✅';
+      logoStatusBadge.style.color = '#34d399';
+    }
+    if (logoFileName) logoFileName.textContent = 'دكان إيلين (افتراضي PNG)';
+    if (logoDimensions) logoDimensions.textContent = `${img.naturalWidth || 400} × ${img.naturalHeight || 400} بكسل (PNG أصلي)`;
+    if (resetBtn) resetBtn.style.display = 'none';
+    
+    // تحديث فوري للكانفس
+    if (state.canvas && state.ctx) {
+      drawCanvasFrame(state.sourceVideo ? state.sourceVideo.currentTime : 0);
+    }
+  };
+  img.onerror = () => {
+    generateFallbackLogoDataUrl();
+  };
+  img.src = pngDataUrl;
 }
 
 /**
@@ -432,6 +494,10 @@ function handleUserLogoFile(file) {
       logoFileName.textContent = file.name;
       logoDimensions.textContent = `${img.naturalWidth} × ${img.naturalHeight} بكسل`;
       dropzone.classList.add('filled');
+      
+      state.isUsingCustomLogo = true;
+      const resetBtn = document.getElementById('resetDefaultLogoBtn');
+      if (resetBtn) resetBtn.style.display = 'inline-flex';
       
       showToast(`تم تعيين اللوجو: ${file.name} بنجاح`, 'success');
     };
@@ -681,6 +747,16 @@ function drawCanvasFrame(timeInSeconds) {
     ctx.translate(posX, posY);
     ctx.rotate(wm.rot);
     ctx.globalAlpha = Math.min(1, Math.max(0.05, wm.alpha));
+    
+    // تأثير التوهج والظل النيوني لتحسين وضوح اللوجو على أي خلفية
+    if (state.glowIntensity > 0) {
+      const glowScale = state.glowIntensity / 100;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+      ctx.shadowBlur = Math.round(logoWidth * 0.12 * glowScale);
+      ctx.shadowOffsetX = Math.round(2 * glowScale);
+      ctx.shadowOffsetY = Math.round(3 * glowScale);
+    }
+    
     ctx.drawImage(
       state.logoImg,
       -logoWidth / 2,
@@ -1211,8 +1287,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
+  // زر استعادة لوجو PNG الافتراضي
+  const resetDefaultLogoBtn = document.getElementById('resetDefaultLogoBtn');
+  if (resetDefaultLogoBtn) {
+    resetDefaultLogoBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      loadDefaultLogo();
+      showToast('تمت استعادة لوجو دكان إيلين PNG الافتراضي ✅', 'success');
+    });
+  }
+  
   // -------------------------------------------------------------
-  // أحداث السلايدرات والإعدادات
+  // أحداث السلايدرات والاستوديو الإبداعي
   // -------------------------------------------------------------
   const sizeSlider = document.getElementById('sizeSlider');
   const sizeValText = document.getElementById('sizeValText');
@@ -1244,26 +1330,106 @@ document.addEventListener('DOMContentLoaded', () => {
     maxOpacityValText.textContent = `${val}%`;
   });
   
-  // زر استعادة الإعدادات الافتراضية
-  document.getElementById('resetSettingsBtn').addEventListener('click', () => {
-    sizeSlider.value = CONFIG.watermark.defaultSizePercent;
-    state.logoSizePercent = CONFIG.watermark.defaultSizePercent;
+  const glowSlider = document.getElementById('glowSlider');
+  const glowValText = document.getElementById('glowValText');
+  if (glowSlider) {
+    glowSlider.addEventListener('input', (e) => {
+      state.glowIntensity = parseInt(e.target.value, 10);
+      glowValText.textContent = `${state.glowIntensity}%`;
+    });
+  }
+  
+  const tiltSlider = document.getElementById('tiltSlider');
+  const tiltValText = document.getElementById('tiltValText');
+  if (tiltSlider) {
+    tiltSlider.addEventListener('input', (e) => {
+      state.tiltMaxAngle = parseInt(e.target.value, 10);
+      tiltValText.textContent = state.tiltMaxAngle === 0 ? 'معطل' : `${state.tiltMaxAngle}°`;
+      generateWaypointsTimeline();
+    });
+  }
+  
+  // أنماط مسار الحركة
+  const pathOptionBtns = document.querySelectorAll('.path-option-btn');
+  pathOptionBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      state.movementPath = btn.dataset.path;
+      pathOptionBtns.forEach((b) => b.classList.toggle('active', b === btn));
+      generateWaypointsTimeline();
+    });
+  });
+  
+  // الأنماط الجاهزة الذكية (Presests)
+  const presetBtns = document.querySelectorAll('.preset-btn');
+  const applyPreset = (presetKey) => {
+    state.activePreset = presetKey;
+    presetBtns.forEach((btn) => btn.classList.toggle('active', btn.dataset.preset === presetKey));
+    
+    if (presetKey === 'classic') {
+      state.logoSizePercent = 20;
+      state.transitSpeedMultiplier = 1.0;
+      state.pulseSpeedMultiplier = 1.0;
+      state.maxPulseAlpha = 0.70;
+      state.movementPath = 'random';
+      state.glowIntensity = 40;
+      state.tiltMaxAngle = 8;
+    } else if (presetKey === 'shield') {
+      state.logoSizePercent = 24;
+      state.transitSpeedMultiplier = 1.4;
+      state.pulseSpeedMultiplier = 1.3;
+      state.maxPulseAlpha = 0.85;
+      state.movementPath = 'random';
+      state.glowIntensity = 60;
+      state.tiltMaxAngle = 10;
+    } else if (presetKey === 'drift') {
+      state.logoSizePercent = 18;
+      state.transitSpeedMultiplier = 0.7;
+      state.pulseSpeedMultiplier = 0.8;
+      state.maxPulseAlpha = 0.60;
+      state.movementPath = 'drift';
+      state.glowIntensity = 30;
+      state.tiltMaxAngle = 4;
+    } else if (presetKey === 'stealth') {
+      state.logoSizePercent = 16;
+      state.transitSpeedMultiplier = 0.5;
+      state.pulseSpeedMultiplier = 0.5;
+      state.maxPulseAlpha = 0.45;
+      state.movementPath = 'random';
+      state.glowIntensity = 0;
+      state.tiltMaxAngle = 0;
+    }
+    
+    // مزامنة عناصر الواجهة مع القيم الجديدة
+    sizeSlider.value = state.logoSizePercent;
     sizeValText.textContent = `${state.logoSizePercent}%`;
-    
-    transitSpeedSlider.value = 1.0;
-    state.transitSpeedMultiplier = 1.0;
-    transitSpeedValText.textContent = '×1.0';
-    
-    pulseSpeedSlider.value = 1.0;
-    state.pulseSpeedMultiplier = 1.0;
-    pulseSpeedValText.textContent = '×1.0';
-    
-    maxOpacitySlider.value = Math.round(CONFIG.watermark.defaultMaxPulseAlpha * 100);
-    state.maxPulseAlpha = CONFIG.watermark.defaultMaxPulseAlpha;
+    transitSpeedSlider.value = state.transitSpeedMultiplier;
+    transitSpeedValText.textContent = `×${state.transitSpeedMultiplier.toFixed(1)}`;
+    pulseSpeedSlider.value = state.pulseSpeedMultiplier;
+    pulseSpeedValText.textContent = `×${state.pulseSpeedMultiplier.toFixed(1)}`;
+    maxOpacitySlider.value = Math.round(state.maxPulseAlpha * 100);
     maxOpacityValText.textContent = `${maxOpacitySlider.value}%`;
     
+    if (glowSlider) {
+      glowSlider.value = state.glowIntensity;
+      glowValText.textContent = `${state.glowIntensity}%`;
+    }
+    if (tiltSlider) {
+      tiltSlider.value = state.tiltMaxAngle;
+      tiltValText.textContent = state.tiltMaxAngle === 0 ? 'معطل' : `${state.tiltMaxAngle}°`;
+    }
+    
+    pathOptionBtns.forEach((btn) => btn.classList.toggle('active', btn.dataset.path === state.movementPath));
     generateWaypointsTimeline();
-    showToast('تمت استعادة الإعدادات الافتراضية', 'info');
+  };
+  
+  presetBtns.forEach((btn) => {
+    btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+  });
+  
+  // زر استعادة الإعدادات الافتراضية
+  document.getElementById('resetSettingsBtn').addEventListener('click', () => {
+    applyPreset('classic');
+    showToast('تمت استعادة إعدادات تيك توك الافتراضية', 'info');
   });
   
   // -------------------------------------------------------------
