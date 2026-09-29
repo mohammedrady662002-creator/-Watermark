@@ -115,7 +115,8 @@ const state = {
   recordedChunks: [],
   bestMimeType: '',
   exportedBlob: null,
-  exportStartTime: 0
+  exportStartTime: 0,
+  pendingExportAfterLogoPick: false
 };
 
 // ============================================================================
@@ -289,15 +290,51 @@ function updateMimeChip() {
 // 6. فحص أمان الكانفس (Canvas Origin Clean Check)
 // ============================================================================
 /**
+ * إنشاء كانفس جديد ونظيف 100% في DOM لإزالة أي تلوث أمني متبقٍ
+ */
+function resetToFreshCanvas() {
+  const oldCanvas = state.canvas;
+  if (!oldCanvas) return null;
+  
+  const parent = oldCanvas.parentElement;
+  const newCanvas = document.createElement('canvas');
+  newCanvas.id = oldCanvas.id;
+  newCanvas.className = oldCanvas.className;
+  newCanvas.width = oldCanvas.width || 1080;
+  newCanvas.height = oldCanvas.height || 1080;
+  newCanvas.style.cssText = oldCanvas.style.cssText;
+  
+  if (parent) {
+    parent.replaceChild(newCanvas, oldCanvas);
+  }
+  state.canvas = newCanvas;
+  state.ctx = newCanvas.getContext('2d');
+  
+  return newCanvas;
+}
+
+/**
  * فحص هل الكانفس آمن وغير ملوث قبل بدء التصدير
  */
-function isCanvasOriginClean(context) {
+function isCanvasOriginClean(targetCanvas) {
+  if (!targetCanvas) return false;
   try {
-    context.getImageData(0, 0, 1, 1);
+    const testCtx = targetCanvas.getContext('2d');
+    testCtx.getImageData(0, 0, 1, 1);
     return true;
   } catch (err) {
     return false;
   }
+}
+
+function showSecurityTaintModal() {
+  const modal = document.getElementById('securityTaintModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function hideSecurityTaintModal() {
+  const modal = document.getElementById('securityTaintModal');
+  if (modal) modal.style.display = 'none';
 }
 
 // ============================================================================
@@ -537,7 +574,23 @@ function handleUserLogoFile(file) {
       const resetBtn = document.getElementById('resetDefaultLogoBtn');
       if (resetBtn) resetBtn.style.display = 'inline-flex';
       
+      // استبدال الكانفس بكانفس جديد كلياً لضمان Origin-Clean: true بنسبة 100%
+      resetToFreshCanvas();
+      if (state.canvas && state.ctx) {
+        drawCanvasFrame(state.sourceVideo ? state.sourceVideo.currentTime : 0);
+      }
+      
       showToast(`تم تعيين اللوجو: ${file.name} بنجاح`, 'success');
+      
+      // إذا كان التصدير معلقاً في انتظار إذن أمان المتصفح، ابدأ التصدير فوراً
+      if (state.pendingExportAfterLogoPick) {
+        state.pendingExportAfterLogoPick = false;
+        hideSecurityTaintModal();
+        showToast('تم منح إذن أمان المتصفح بنجاح! جاري بدء التصدير...', 'info');
+        setTimeout(() => {
+          startVideoExport();
+        }, 150);
+      }
     };
     img.src = dataUrl;
   };
@@ -888,6 +941,12 @@ async function startVideoExport() {
     return;
   }
   
+  // 1. فحص أمان أصل الكانفس (Origin-Clean Check) لمنع خطأ SecurityError على بروتوكول file://
+  if (!isCanvasOriginClean(state.canvas)) {
+    state.pendingExportAfterLogoPick = true;
+    showSecurityTaintModal();
+    return;
+  }
   
   // تجهيز مسارات الصوت
   setupAudioGraph();
@@ -913,9 +972,25 @@ async function startVideoExport() {
   // إعادة بناء المسار الزمني بنفس البذرة الثابتة تماماً
   generateWaypointsTimeline();
   
-  // تجهيز مجرى الكانفس بمطابقة تامة مع معدل إطارات المصدر (Match Source) لمنع أي سقوط فريمات أو تجميد
+  // تجهيز مجرى الكانفس بمطابقة تامة مع معدل إطارات المصدر (Match Source) مع حماية أمان كاملة
   const targetFps = state.videoFps || 30;
-  const canvasStream = canvas.captureStream(targetFps);
+  let canvasStream;
+  try {
+    canvasStream = canvas.captureStream(targetFps);
+  } catch (err) {
+    state.isExporting = false;
+    toggleInputsDisabled(false);
+    exportCard.classList.remove('active');
+    
+    if (err.name === 'SecurityError' || (err.message && err.message.includes('origin-clean'))) {
+      state.pendingExportAfterLogoPick = true;
+      showSecurityTaintModal();
+    } else {
+      showToast(`فشل بدء التقاط الفيديو: ${err.message}`, 'error');
+    }
+    return;
+  }
+  
   let finalStream = canvasStream;
   
   const exportFpsText = document.getElementById('exportFpsText');
@@ -1574,6 +1649,33 @@ document.addEventListener('DOMContentLoaded', () => {
     startVideoExport();
   });
   
+  // أزرار نافذة إذن أمان المتصفح (file:// protocol security modal)
+  const modalPickLogoBtn = document.getElementById('modalPickLogoBtn');
+  if (modalPickLogoBtn) {
+    modalPickLogoBtn.addEventListener('click', () => {
+      const logoInput = document.getElementById('logoFileInput');
+      if (logoInput) logoInput.click();
+    });
+  }
+  
+  const modalExportWithoutLogoBtn = document.getElementById('modalExportWithoutLogoBtn');
+  if (modalExportWithoutLogoBtn) {
+    modalExportWithoutLogoBtn.addEventListener('click', () => {
+      hideSecurityTaintModal();
+      state.isLogoLoaded = false;
+      resetToFreshCanvas();
+      startVideoExport();
+    });
+  }
+  
+  const modalCloseSecurityBtn = document.getElementById('modalCloseSecurityBtn');
+  if (modalCloseSecurityBtn) {
+    modalCloseSecurityBtn.addEventListener('click', () => {
+      hideSecurityTaintModal();
+      state.pendingExportAfterLogoPick = false;
+    });
+  }
+
   // زر تحميل النتيجة النهائية
   document.getElementById('downloadFinalBtn').addEventListener('click', () => {
     triggerDirectDownload();
