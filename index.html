@@ -22,31 +22,26 @@
     <div class="ambient-glow-1"></div>
     <div class="ambient-glow-2"></div>
 
-    <!-- Source Video Element (Kept active in viewport with non-throttled styles to guarantee 0 dropped frames) -->
-    <div style="position:fixed; bottom:0; left:0; width:160px; height:90px; opacity:0.05; pointer-events:none; z-index:9999; overflow:hidden;">
-      <video id="sourceVideo" playsinline preload="auto" style="width:100%; height:100%; object-fit:contain;"></video>
-    </div>
-
     <!-- Main Application Wrapper -->
     <div class="app-container">
       
-      <!-- App Header -->
+      <!-- Compact Sleek Header -->
       <header class="app-header">
-        <div class="brand-badge">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-          </svg>
-          <span>استوديو العلامة المائية المتطور</span>
+        <div class="header-content">
+          <div class="brand-badge">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+            <span>استوديو العلامة المائية البسيط والسلس</span>
+          </div>
+          <h1 class="brand-title">
+            <span class="title-gradient">Rady Watermark</span>
+          </h1>
+          <p class="brand-subtitle">
+            اختر الفيديو وحدد تمبلت الحركة وتمبلت ظهور اللوجو وصدر فوراً بأعلى جودة مطابقة للمصدر 100%.
+          </p>
         </div>
-        <h1 class="brand-title">
-          <span class="title-gradient">Rady Watermark</span>
-        </h1>
-        <p class="brand-subtitle">
-          أضف لوجو متحرّكًا بأسلوب توقيع تيك توك الشهير مع انتقال عشوائي سلس، نبض شفافية مستمر، وتصدير فوري بأعلى معدل إطارات (60 FPS Ultra Smooth).
-        </p>
       </header>
-
-
 
       <!-- Main Two-Column Layout -->
       <main class="main-grid">
@@ -54,255 +49,231 @@
         <!-- Right Column: Settings & Controls (RTL) -->
         <section class="controls-column">
           
-          <!-- 1. Video Input Card -->
-          <div class="glass-card" id="videoCard">
-            <div class="card-header">
+          <!-- 1. Compact Media Deck (الفيديو واللوجو في شريط واحد) -->
+          <div class="glass-card" id="mediaCard">
+            <div class="card-header-compact">
               <div class="card-title-group">
-                <div class="card-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
-                    <line x1="7" y1="2" x2="7" y2="22"></line>
-                    <line x1="17" y1="2" x2="17" y2="22"></line>
-                    <line x1="2" y1="12" x2="22" y2="12"></line>
-                    <line x1="2" y1="7" x2="7" y2="7"></line>
-                    <line x1="2" y1="17" x2="7" y2="17"></line>
-                    <line x1="17" y1="17" x2="22" y2="17"></line>
-                    <line x1="17" y1="7" x2="22" y2="7"></line>
-                  </svg>
-                </div>
-                <h2 class="card-title">1. الفيديو المصدر</h2>
+                <span class="step-num">1</span>
+                <h2 class="card-title">الفيديو واللوجو</h2>
               </div>
-              <button type="button" class="btn-secondary" id="loadDemoBtn" title="تجربة فيديو توضيحي سريع بدون رفع ملف">
-                فيديو تجريبي
+              <button type="button" class="btn-micro" id="loadDemoBtn" title="تجربة فيديو توضيحي سريع بدون رفع ملف">
+                🎬 تجربة فيديو سريع
               </button>
             </div>
 
-            <!-- Drag & Drop Zone -->
-            <div class="dropzone" id="videoDropzone">
-              <input type="file" id="videoFileInput" accept="video/*" style="display:none;" />
-              <div class="dropzone-icon">
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="17 8 12 3 7 8"></polyline>
-                  <line x1="12" y1="3" x2="12" y2="15"></line>
-                </svg>
-              </div>
-              <div class="dropzone-label">اسحب وأفلت ملف الفيديو هنا</div>
-              <div class="dropzone-hint">أو اضغط لاختيار ملف من جهازك (MP4, WebM, MOV)</div>
-              <button type="button" class="btn-secondary btn-outline-cyan" id="chooseVideoBtn" style="margin-top: 6px;">
-                اختيار الفيديو
-              </button>
-            </div>
-
-            <!-- Video Info Pill -->
-            <div class="file-info-pill" id="videoInfoPill">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#25f4ee" stroke-width="2">
-                <polygon points="5 3 19 12 5 21 5 3"></polygon>
-              </svg>
-              <div class="file-info-details" id="videoNameText">لم يتم اختيار فيديو</div>
-              <span class="badge-tag" id="videoDimText">--×--</span>
-              <span class="badge-tag" id="videoDurationText">00:00</span>
-            </div>
-          </div>
-
-          <!-- 2. Logo Input Card (Compact Row & PNG Badge) -->
-          <div class="glass-card" id="logoCard">
-            <div class="card-header">
-              <div class="card-title-group">
-                <div class="card-icon pink">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                    <polyline points="21 15 16 10 5 21"></polyline>
-                  </svg>
-                </div>
-                <h2 class="card-title">2. لوجو العلامة المائية</h2>
-              </div>
-              <span class="badge-tag" id="logoStatusBadge">لوجو PNG جاهز ومطبق ✅</span>
-            </div>
-
-            <!-- Sleek Horizontal Row: Logo Preview + Compact Dropzone -->
-            <div class="logo-compact-row">
-              <!-- Active Logo Preview Box -->
-              <div class="logo-badge-preview">
-                <div class="logo-avatar-frame">
-                  <img id="logoThumbnailImg" alt="لوجو دكان إيلين PNG" />
-                  <span class="logo-format-tag">PNG</span>
-                </div>
-                <div class="logo-meta-info">
-                  <div class="logo-title-line">
-                    <span id="logoFileName" class="logo-name-bold">assets/logo.png</span>
-                    <button type="button" id="reloadAssetsLogoBtn" class="btn-reset-icon" title="تحديث وقراءة اللوجو الجديد من مجلد assets">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l6.67-6.67"/></svg>
-                      تحديث
-                    </button>
-                    <button type="button" id="resetDefaultLogoBtn" class="btn-reset-icon" title="استعادة اللوجو الافتراضي" style="display:none;">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                      استعادة
+            <!-- Split: Video Box + Logo Box -->
+            <div class="media-compact-grid">
+              <!-- Video Box -->
+              <div class="media-box" id="videoDropzone" title="اضغط أو اسحب الفيديو هنا">
+                <input type="file" id="videoFileInput" accept="video/*" style="display:none;" />
+                <div class="media-box-inner">
+                  <div class="media-icon-circle video-accent">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                  </div>
+                  <div class="media-meta">
+                    <div id="videoNameText" class="media-title">لم يتم اختيار فيديو</div>
+                    <div id="videoDimText" class="media-sub">اختر فيديو (MP4, MOV, WebM)</div>
+                  </div>
+                  <div class="media-actions">
+                    <button type="button" class="btn-mini-browse" id="chooseVideoBtn">
+                      اختيار فيديو
                     </button>
                   </div>
-                  <div id="logoDimensions" class="logo-dims-text">400 × 400 بكسل (PNG أصلي)</div>
                 </div>
               </div>
 
-              <!-- Compact Drop & Upload Zone next to icon -->
-              <div class="dropzone-mini" id="logoDropzone">
+              <!-- Logo Box -->
+              <div class="media-box" id="logoDropzone" title="اضغط لاختيار لوجو مخصص">
                 <input type="file" id="logoFileInput" accept="image/png,image/jpeg,image/webp" style="display:none;" />
-                <div class="dropzone-mini-content">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--tiktok-cyan)" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="17 8 12 3 7 8"></polyline>
-                    <line x1="12" y1="3" x2="12" y2="15"></line>
-                  </svg>
-                  <div class="dropzone-mini-texts">
-                    <span class="mini-label">تغيير اللوجو أو إفلات ملف هنا</span>
-                    <span class="mini-sublabel">يدعم PNG و JPG</span>
+                <div class="media-box-inner">
+                  <div class="logo-avatar-frame">
+                    <img id="logoThumbnailImg" alt="لوجو" />
+                  </div>
+                  <div class="media-meta">
+                    <div id="logoFileName" class="media-title">assets/logo.png</div>
+                    <div id="logoDimensions" class="media-sub">PNG أصلي عالي الدقة</div>
+                  </div>
+                  <div class="media-actions">
+                    <button type="button" id="reloadAssetsLogoBtn" class="btn-reset-icon" title="إعادة تحميل اللوجو من assets">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l6.67-6.67"/></svg>
+                    </button>
+                    <button type="button" class="btn-mini-browse" id="chooseLogoBtn">
+                      تغيير اللوجو
+                    </button>
                   </div>
                 </div>
-                <button type="button" class="btn-mini-browse" id="chooseLogoBtn">
-                  استعراض
-                </button>
               </div>
             </div>
           </div>
 
-          <!-- 3. Watermark Settings Card (Creative Studio) -->
-          <div class="glass-card" id="settingsCard">
-            <div class="card-header">
+          <!-- 2. Motion Templates Card (تمبلتس الحركات) -->
+          <div class="glass-card" id="motionTemplatesCard">
+            <div class="card-header-compact">
               <div class="card-title-group">
-                <div class="card-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="3"></circle>
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                  </svg>
+                <span class="step-num">2</span>
+                <h2 class="card-title">تمبلتس الحركات</h2>
+              </div>
+              <button type="button" id="togglePathPreviewBtn" class="btn-micro-toggle" title="رسم مسار الحركة على شاشة المعاينة">
+                <span>مسار الحركة: <strong id="pathPreviewStateText">مخفي</strong></span>
+              </button>
+            </div>
+
+            <div class="motion-cards-grid" id="motionCardsGrid">
+              <!-- 1. TikTok Classic -->
+              <button type="button" class="motion-card active" data-path="random">
+                <div class="motion-card-top">
+                  <span class="motion-emoji">🎵</span>
+                  <span class="motion-badge cyan">تيك توك</span>
                 </div>
-                <h2 class="card-title">3. استوديو الحركة والمظهر الاحترافي</h2>
-              </div>
-              <button type="button" class="btn-secondary" id="resetSettingsBtn" style="padding:4px 10px; font-size:0.8rem;">
-                استعادة الافتراضي
+                <div class="motion-title">تيك توك كلاسيك</div>
+                <div class="motion-desc">تنقل ذكي بين الأركان مع وقفات آمنة</div>
               </button>
-            </div>
 
-            <!-- Creative Quick Presets -->
-            <div style="font-size:0.82rem; font-weight:700; color:var(--text-secondary); margin-bottom:8px;">
-              الأنماط الجاهزة الذكية (بلمسة واحدة):
-            </div>
-            <div class="preset-grid" id="presetGrid">
-              <button type="button" class="preset-btn active" data-preset="classic">
-                <span class="preset-icon">🎵</span>
-                <span class="preset-title">تيك توك كلاسيك</span>
-                <span class="preset-subtitle">حركة متوازنة</span>
-              </button>
-              <button type="button" class="preset-btn" data-preset="shield">
-                <span class="preset-icon">🛡️</span>
-                <span class="preset-title">درع ضد السرقة</span>
-                <span class="preset-subtitle">تغطية ذكية سريعة</span>
-              </button>
-              <button type="button" class="preset-btn" data-preset="drift">
-                <span class="preset-icon">🌊</span>
-                <span class="preset-title">عائم سينمائي</span>
-                <span class="preset-subtitle">انسيابي هادئ</span>
-              </button>
-              <button type="button" class="preset-btn" data-preset="stealth">
-                <span class="preset-icon">👻</span>
-                <span class="preset-title">شبح خفي</span>
-                <span class="preset-subtitle">شفافية ناعمة</span>
-              </button>
-            </div>
-
-            <!-- Movement Path Selector -->
-            <div style="font-size:0.82rem; font-weight:700; color:var(--text-secondary); margin-bottom:8px;">
-              مسار تنقل العلامة:
-            </div>
-            <div class="path-selector-row" id="pathSelectorRow">
-              <button type="button" class="path-option-btn active" data-path="random">
-                <span>🎲 عشوائي تيك توك</span>
-              </button>
-              <button type="button" class="path-option-btn" data-path="corners">
-                <span>🔄 الأركان الأربعة</span>
-              </button>
-              <button type="button" class="path-option-btn" data-path="drift">
-                <span>♾️ مسار انسيابي</span>
-              </button>
-            </div>
-
-            <!-- Slider 1: Logo Size -->
-            <div class="slider-group">
-              <div class="slider-header">
-                <span class="slider-label">حجم اللوجو من عرض الفيديو:</span>
-                <span class="slider-val" id="sizeValText">20%</span>
-              </div>
-              <input type="range" class="custom-slider" id="sizeSlider" min="6" max="32" step="1" value="20" />
-            </div>
-
-            <!-- Slider 2: Transit Speed Multiplier -->
-            <div class="slider-group">
-              <div class="slider-header">
-                <span class="slider-label">سرعة التنقل بين المواضع:</span>
-                <span class="slider-val" id="transitSpeedValText">×1.0</span>
-              </div>
-              <input type="range" class="custom-slider" id="transitSpeedSlider" min="0.5" max="2.2" step="0.1" value="1.0" />
-            </div>
-
-            <!-- Slider 3: Pulse Speed Multiplier -->
-            <div class="slider-group">
-              <div class="slider-header">
-                <span class="slider-label">سرعة نبض الشفافية:</span>
-                <span class="slider-val" id="pulseSpeedValText">×1.0</span>
-              </div>
-              <input type="range" class="custom-slider" id="pulseSpeedSlider" min="0.3" max="2.0" step="0.1" value="1.0" />
-            </div>
-
-            <!-- Slider 4: Max Opacity -->
-            <div class="slider-group">
-              <div class="slider-header">
-                <span class="slider-label">أقصى ظهور للعلامة (الشفافية):</span>
-                <span class="slider-val" id="maxOpacityValText">70%</span>
-              </div>
-              <input type="range" class="custom-slider" id="maxOpacitySlider" min="35" max="95" step="1" value="70" />
-            </div>
-
-            <!-- Creative FX Controls: Glow & Dynamic Tilt -->
-            <div class="fx-controls-grid">
-              <div class="fx-box">
-                <div class="fx-header">
-                  <span>توهج وظل تيك توك:</span>
-                  <span class="fx-val" id="glowValText">40%</span>
+              <!-- 2. Cinematic Glide -->
+              <button type="button" class="motion-card" data-path="glide">
+                <div class="motion-card-top">
+                  <span class="motion-emoji">🚀</span>
+                  <span class="motion-badge">سينمائي</span>
                 </div>
-                <input type="range" class="custom-slider" id="glowSlider" min="0" max="100" step="5" value="40" />
-              </div>
-              <div class="fx-box">
-                <div class="fx-header">
-                  <span>الميلان الحركي (Tilt):</span>
-                  <span class="fx-val" id="tiltValText">ديناميكي</span>
-                </div>
-                <input type="range" class="custom-slider" id="tiltSlider" min="0" max="15" step="1" value="8" />
-              </div>
-            </div>
+                <div class="motion-title">انزلاق سينمائي</div>
+                <div class="motion-desc">نعومة مفرطة وطفو هادئ فائق الفخامة</div>
+              </button>
 
-            <!-- Export Framerate Indicator: Match Source -->
-            <div style="background: rgba(0, 242, 234, 0.05); border: 1px solid rgba(0, 242, 234, 0.22); border-radius: var(--radius-sm); padding: 12px 14px; margin-top: 10px; display: flex; align-items: center; justify-content: space-between;">
-              <div style="display:flex; align-items:center; gap:8px;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--tiktok-cyan)" stroke-width="2.2">
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                </svg>
-                <span style="font-weight:700; font-size:0.9rem; color:var(--text-primary);">معدل إطارات التصدير:</span>
-              </div>
-              <span id="exportFpsBadgeText" style="font-weight:900; color:var(--tiktok-cyan); font-size:0.92rem; background:rgba(0, 242, 234, 0.12); padding:3px 10px; border-radius:20px; border:1px solid rgba(0, 242, 234, 0.3);">
-                🎯 مطابق للمصدر (Match Source)
-              </span>
+              <!-- 3. Elastic Bounce -->
+              <button type="button" class="motion-card" data-path="bounce">
+                <div class="motion-card-top">
+                  <span class="motion-emoji">⚡</span>
+                  <span class="motion-badge">مرن</span>
+                </div>
+                <div class="motion-title">ارتداد زنبركي</div>
+                <div class="motion-desc">قفزات فيزيائية رشيقة ترتد بنعومة تفاعلية</div>
+              </button>
+
+              <!-- 4. Infinite Orbit -->
+              <button type="button" class="motion-card" data-path="orbit">
+                <div class="motion-card-top">
+                  <span class="motion-emoji">♾️</span>
+                  <span class="motion-badge">دوران</span>
+                </div>
+                <div class="motion-title">مدار لانهائي</div>
+                <div class="motion-desc">دوران متدفق في الهوامش حول الأطراف</div>
+              </button>
+
+              <!-- 5. Floating Wave -->
+              <button type="button" class="motion-card" data-path="wave">
+                <div class="motion-card-top">
+                  <span class="motion-emoji">🌊</span>
+                  <span class="motion-badge">عائم</span>
+                </div>
+                <div class="motion-title">أمواج عائمة</div>
+                <div class="motion-desc">تموج انسيابي مائي وتمايل لطيف هادئ</div>
+              </button>
+
+              <!-- 6. Smart Ghost -->
+              <button type="button" class="motion-card" data-path="stealth">
+                <div class="motion-card-top">
+                  <span class="motion-emoji">👻</span>
+                  <span class="motion-badge">شبح</span>
+                </div>
+                <div class="motion-title">شبح الحماية</div>
+                <div class="motion-desc">تلاشٍ تدريجي هادئ وانتقال فجائي سريع</div>
+              </button>
             </div>
           </div>
 
-          <!-- 4. Export Trigger Button -->
-          <div class="glass-card" style="padding:16px;">
-            <button type="button" class="btn-primary" id="openExportModalBtn" disabled>
+          <!-- 3. Logo Appearance Templates Card (تمبلتس ظهور ومظهر اللوجو) -->
+          <div class="glass-card" id="appearanceTemplatesCard">
+            <div class="card-header-compact">
+              <div class="card-title-group">
+                <span class="step-num">3</span>
+                <h2 class="card-title">تمبلتس ظهور ومظهر اللوجو</h2>
+              </div>
+              <span class="badge-sub">6 تمبلتس حية</span>
+            </div>
+
+            <div class="appearance-grid" id="appearanceGrid">
+              <!-- 1. Neon Glow -->
+              <button type="button" class="appearance-card active" data-appearance="neon">
+                <div class="appearance-top">
+                  <span class="appearance-emoji">✨</span>
+                  <span class="appearance-badge cyan">نيون</span>
+                </div>
+                <div class="appearance-title">نيون تيك توك</div>
+                <div class="appearance-desc">توهج وظل بارز ونبض حيوي مشع</div>
+              </button>
+
+              <!-- 2. Cinematic Breath -->
+              <button type="button" class="appearance-card" data-appearance="cinematic">
+                <div class="appearance-top">
+                  <span class="appearance-emoji">🎬</span>
+                  <span class="appearance-badge">تكبير</span>
+                </div>
+                <div class="appearance-title">تنفس سينمائي</div>
+                <div class="appearance-desc">تكبير وتصغير هادئ وتلاشٍ ناعم</div>
+              </button>
+
+              <!-- 3. Protective Shield -->
+              <button type="button" class="appearance-card" data-appearance="shield">
+                <div class="appearance-top">
+                  <span class="appearance-emoji">🛡️</span>
+                  <span class="appearance-badge pink">حماية</span>
+                </div>
+                <div class="appearance-title">درع حماية</div>
+                <div class="appearance-desc">وضوح فائق 100% مانع للقص والسرقة</div>
+              </button>
+
+              <!-- 4. Crystal Glass -->
+              <button type="button" class="appearance-card" data-appearance="glass">
+                <div class="appearance-top">
+                  <span class="appearance-emoji">💎</span>
+                  <span class="appearance-badge">زجاجي</span>
+                </div>
+                <div class="appearance-title">كريستال نقي</div>
+                <div class="appearance-desc">شفافية راقية 50% كالقنوات الفضائية</div>
+              </button>
+
+              <!-- 5. Flash Pop -->
+              <button type="button" class="appearance-card" data-appearance="flash">
+                <div class="appearance-top">
+                  <span class="appearance-emoji">⚡</span>
+                  <span class="appearance-badge">وميض</span>
+                </div>
+                <div class="appearance-title">وميض خاطف</div>
+                <div class="appearance-desc">نبضات ضوء إيقاعية ولمعان متكرر</div>
+              </button>
+
+              <!-- 6. Water Float -->
+              <button type="button" class="appearance-card" data-appearance="water">
+                <div class="appearance-top">
+                  <span class="appearance-emoji">💧</span>
+                  <span class="appearance-badge">مائي</span>
+                </div>
+                <div class="appearance-title">طفو مائي</div>
+                <div class="appearance-desc">انسياب مائي هادئ وتمايل لطيف دائم</div>
+              </button>
+            </div>
+          </div>
+
+          <!-- 4. Size & Instant Export Deck (حجم اللوجو وزر التصدير الفوري) -->
+          <div class="glass-card" id="exportActionCard">
+            <div class="slider-row">
+              <div class="slider-info">
+                <span class="slider-title">حجم اللوجو من الفيديو:</span>
+                <span class="slider-val-badge" id="sizeValText">20%</span>
+              </div>
+              <input type="range" class="custom-slider" id="sizeSlider" min="8" max="32" step="1" value="20" />
+            </div>
+
+            <!-- Big Primary Glowing Export Button -->
+            <button type="button" class="btn-primary-export" id="openExportModalBtn" disabled>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="7 10 12 15 17 10"></polyline>
                 <line x1="12" y1="15" x2="12" y2="3"></line>
               </svg>
-              <span>تصدير الفيديو (مطابق للمصدر 100%)</span>
+              <span>تصدير الفيديو (مطابق للأصل 100% بدون ضياع)</span>
             </button>
           </div>
 
@@ -312,50 +283,66 @@
         <section class="preview-column">
           
           <!-- Live Preview Card -->
-          <div class="glass-card" id="previewCard">
-            <div class="card-header">
+          <div class="glass-card preview-card" id="previewCard">
+            <div class="card-header-compact">
               <div class="card-title-group">
-                <div class="card-icon">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                    <circle cx="12" cy="12" r="3"></circle>
-                  </svg>
+                <div class="live-dot-wrap">
+                  <span class="live-dot"></span>
                 </div>
-                <h2 class="card-title">المعاينة الحية التفاعلية</h2>
+                <h2 class="card-title">المعاينة الحية الفورية</h2>
               </div>
               <!-- Format Support Chip -->
               <div class="format-chip" id="mimeChip">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                </svg>
                 <span id="mimeChipText">جاري فحص الصيغة...</span>
               </div>
             </div>
 
             <!-- Canvas Viewport -->
             <div class="canvas-wrapper" id="canvasContainer">
+              <!-- Floating Live Telemetry Bar -->
+              <div class="canvas-telemetry-bar" id="canvasTelemetryBar">
+                <span class="telemetry-item">
+                  <span class="telemetry-dot"></span>
+                  <span id="telemetryModeText">تيك توك كلاسيك</span>
+                </span>
+                <span class="telemetry-separator">·</span>
+                <span class="telemetry-item" id="telemetryPosText">X: 50% · Y: 50%</span>
+                <span class="telemetry-separator">·</span>
+                <span class="telemetry-item" id="telemetryStateText">مظهر: نيون متوهج</span>
+              </div>
+
+              <!-- Source Video: rendered in viewport with 100% opacity behind canvas so Chrome never suspends hardware decoding -->
+              <video id="sourceVideo" playsinline preload="auto"></video>
               <canvas id="previewCanvas" width="1280" height="720"></canvas>
+              
+              <!-- Placeholder when no video is loaded -->
               <div class="canvas-placeholder" id="canvasPlaceholder">
                 <div class="canvas-placeholder-icon">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polygon points="5 3 19 12 5 21 5 3"></polygon>
                   </svg>
                 </div>
-                <h3 style="color:var(--text-primary); font-size:1.1rem; font-weight:700;">لا يوجد فيديو قيد العرض حالياً</h3>
-                <p style="font-size:0.88rem; max-width:340px;">
-                  اختر فيديو من جهازك أو اضغط على "فيديو تجريبي" لبدء المعاينة الحية فوراً مع حركة توقيع تيك توك.
+                <h3>اختر فيديو للمعاينة والتصدير</h3>
+                <p>
+                  اختر فيديو من جهازك أو اضغط على "تجربة فيديو سريع" لبدء المعاينة الحية فوراً مع حركات ومظهر اللوجو.
                 </p>
               </div>
             </div>
 
-            <!-- Video Player Controls -->
-            <div class="player-controls" style="margin-top:14px;">
-              <button type="button" class="control-btn" id="playPauseBtn" title="تشغيل / إيقاف مؤقت">
-                <svg id="playIcon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+            <!-- Video Player Controls Bar -->
+            <div class="player-controls">
+              <button type="button" class="control-btn" id="restartVideoBtn" title="الرجوع للبداية (0:00)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <polygon points="19 20 9 12 19 4 19 20"></polygon>
+                  <line x1="5" y1="19" x2="5" y2="5"></line>
+                </svg>
+              </button>
+
+              <button type="button" class="control-btn play-btn" id="playPauseBtn" title="تشغيل / إيقاف مؤقت">
+                <svg id="playIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <polygon points="5 3 19 12 5 21 5 3"></polygon>
                 </svg>
-                <svg id="pauseIcon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style="display:none;">
+                <svg id="pauseIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:none;">
                   <rect x="6" y="4" width="4" height="16"></rect>
                   <rect x="14" y="4" width="4" height="16"></rect>
                 </svg>
@@ -371,12 +358,12 @@
           <div class="glass-card export-card" id="exportProgressCard">
             <div class="progress-header">
               <div>
-                <span style="font-size:0.85rem; color:var(--text-secondary); display:block; margin-bottom:4px;">جاري معالجة ودمج الفيديو...</span>
+                <span class="progress-label">جاري تصدير ومعالجة الفيديو بدقة المصدر 100%...</span>
                 <div class="progress-percentage" id="exportPercentText">0%</div>
               </div>
               <div class="progress-meta">
                 <div class="progress-meta-item" id="exportSizeText">0.0 MB</div>
-                <div class="progress-meta-item" style="color:var(--tiktok-cyan); font-weight:600;" id="exportEtaText">المتبقي: حساب...</div>
+                <div class="progress-meta-item eta-item" id="exportEtaText">المتبقي: حساب...</div>
               </div>
             </div>
 
@@ -404,7 +391,7 @@
             <!-- Final Video Preview -->
             <video id="resultVideo" class="result-video-preview" controls playsinline></video>
 
-            <button type="button" class="btn-primary" id="downloadFinalBtn">
+            <button type="button" class="btn-primary-export" id="downloadFinalBtn">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="7 10 12 15 17 10"></polyline>
@@ -420,40 +407,31 @@
 
     </div>
 
-
-
     <!-- Security Taint Permission Modal for file:/// protocol -->
     <div class="modal-overlay" id="securityTaintModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); z-index:99999; align-items:center; justify-content:center; padding:20px;">
       <div class="glass-card" style="max-width:480px; width:100%; border:1px solid rgba(37,244,238,0.4); box-shadow:0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(37,244,238,0.2); padding:24px; text-align:center;">
-        <div style="width:56px; height:56px; border-radius:50%; background:rgba(37,244,238,0.12); border:2px solid var(--tiktok-cyan); display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--tiktok-cyan)" stroke-width="2.2">
+        <div style="width:52px; height:52px; border-radius:50%; background:rgba(37,244,238,0.12); border:2px solid var(--tiktok-cyan); display:flex; align-items:center; justify-content:center; margin:0 auto 14px;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--tiktok-cyan)" stroke-width="2.2">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
           </svg>
         </div>
         
-        <h3 style="font-size:1.25rem; font-weight:800; color:var(--text-primary); margin-bottom:12px;">إذن أمان المتصفح (بروتوكول file://)</h3>
+        <h3 style="font-size:1.2rem; font-weight:800; color:var(--text-primary); margin-bottom:10px;">إذن أمان المتصفح (بروتوكول file://)</h3>
         
-        <p style="font-size:0.92rem; color:var(--text-secondary); line-height:1.6; margin-bottom:20px;">
+        <p style="font-size:0.9rem; color:var(--text-secondary); line-height:1.6; margin-bottom:18px;">
           نظراً لفتح الصفحة عبر مسار الملفات المحلي (<code style="color:var(--tiktok-cyan); background:rgba(0,0,0,0.4); padding:2px 6px; border-radius:4px;">file://</code>)، يتطلب متصفحك اختيار ملف اللوجو مباشرة لترخيص تسجيل الفيديو بدون قيود أمان الكانفس.
-          <br><br>
-          <strong style="color:var(--text-primary);">اختر ملف اللوجو (<code style="color:#34d399;">logo.png</code>) الخاص بك من مجلد assets وسيبدأ التصدير تلقائياً فوراً بنجاح 100%!</strong>
         </p>
         
         <div style="display:flex; flex-direction:column; gap:10px;">
-          <button type="button" class="btn-primary" id="modalPickLogoBtn" style="width:100%; justify-content:center;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="17 8 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
+          <button type="button" class="btn-primary-export" id="modalPickLogoBtn" style="width:100%; justify-content:center;">
             <span>📁 اختيار ملف logo.png وبدء التصدير فوراً</span>
           </button>
           
-          <button type="button" class="btn-secondary" id="modalExportWithoutLogoBtn" style="width:100%; justify-content:center; font-size:0.88rem;">
+          <button type="button" class="btn-micro" id="modalExportWithoutLogoBtn" style="width:100%; justify-content:center; font-size:0.85rem; padding:10px;">
             تصدير الفيديو بدون علامة مائية
           </button>
           
-          <button type="button" id="modalCloseSecurityBtn" style="background:transparent; border:none; color:var(--text-muted); font-size:0.85rem; padding:8px; cursor:pointer;">
+          <button type="button" id="modalCloseSecurityBtn" style="background:transparent; border:none; color:var(--text-muted); font-size:0.82rem; padding:8px; cursor:pointer;">
             إلغاء التصدير
           </button>
         </div>
@@ -462,6 +440,9 @@
 
     <!-- Toast Notification Container -->
     <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Preloaded Logo Data (Guarantees zero security errors and instant clean canvas on all protocols) -->
+    <script src="assets/logo.js"></script>
 
     <!-- Core App Logic -->
     <script src="script.js"></script>

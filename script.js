@@ -62,9 +62,56 @@ function createMulberry32(seed) {
   };
 }
 
-// دالة التخفيف التكعيبي للانتقال السلس (easeInOutCubic)
+// ============================================================================
+// 2. دوال الرياضيات والتسارع الفيزيائي المتطور (Advanced Physics & Easing Engine)
+// ============================================================================
+function createMulberry32(seed) {
+  let a = seed >>> 0;
+  return function() {
+    let t = (a += 0x6D2B79F5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// دالة التخفيف التكعيبي (Cubic Smooth)
 function easeInOutCubic(x) {
   return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+}
+
+// دالة التخفيف الخماسي فائق النعومة (Cinematic Quintic - Zero Jerk)
+function easeInOutQuintic(x) {
+  return x < 0.5 ? 16 * Math.pow(x, 5) : 1 - Math.pow(-2 * x + 2, 5) / 2;
+}
+
+// محاكاة ارتداد الزنبرك المرن التفاعلي (Magnetic Spring Bounce)
+function springElastic(x) {
+  if (x === 0) return 0;
+  if (x === 1) return 1;
+  const p = 0.38;
+  const s = p / 4;
+  return Math.pow(2, -10 * x) * Math.sin(((x - s) * (2 * Math.PI)) / p) + 1;
+}
+
+// دالة هيرميت الانسيابية الهادئة (Smooth Hermite)
+function smoothHermite(x) {
+  return x * x * (3 - 2 * x);
+}
+
+function applySelectedEasing(rawProgress, easingType) {
+  const p = Math.min(1, Math.max(0, rawProgress));
+  switch (easingType) {
+    case 'quintic':
+      return easeInOutQuintic(p);
+    case 'spring':
+      return springElastic(p);
+    case 'smooth':
+      return smoothHermite(p);
+    case 'cubic':
+    default:
+      return easeInOutCubic(p);
+  }
 }
 
 // ============================================================================
@@ -89,7 +136,11 @@ const state = {
   maxPulseAlpha: CONFIG.watermark.defaultMaxPulseAlpha,
   
   // بارامترات الاستوديو الإبداعي الجديد
-  movementPath: 'random', // 'random' | 'corners' | 'drift'
+  movementPath: 'random', // 'random' | 'glide' | 'bounce' | 'orbit' | 'wave' | 'stealth'
+  appearanceTemplate: 'neon', // 'neon' | 'cinematic' | 'shield' | 'glass' | 'flash' | 'water'
+  easingType: 'quintic',   // 'quintic' | 'spring' | 'cubic' | 'smooth'
+  microBreathing: true,    // تموج وتنفس حي دائم يمنع الجمود
+  showPathPreview: false,  // إظهار مسار الحركة على الكانفس
   glowIntensity: 40,      // نسبة الظل والتوهج 0 - 100
   tiltMaxAngle: 8,        // أقصى زاوية ميلان بالدرجات
   activePreset: 'classic',
@@ -120,7 +171,7 @@ const state = {
 };
 
 // ============================================================================
-// 4. توليد المسار الزمني الثابت للعلامة المائية (Deterministic Timeline)
+// 4. توليد المسار الزمني الثابت للعلامة المائية (Deterministic Creative Motion Timeline)
 // ============================================================================
 function generateWaypointsTimeline() {
   const rng = createMulberry32(CONFIG.seed);
@@ -133,46 +184,89 @@ function generateWaypointsTimeline() {
   let curRot = 0;
   let curScale = 1.0;
   let cornerIdx = 0;
+  let orbitAngle = 0;
   
   const cornerPositions = [
     { x: 0.10, y: 0.10 }, // أعلى اليمين (RTL)
     { x: 0.90, y: 0.88 }, // أسفل اليسار
     { x: 0.90, y: 0.10 }, // أعلى اليسار
-    { x: 0.10, y: 0.88 }  // أسفل اليمين
+    { x: 0.10, y: 0.88 }, // أسفل اليمين
+    { x: 0.50, y: 0.12 }, // منتصف علوي
+    { x: 0.50, y: 0.86 }  // منتصف سفلي
+  ];
+
+  const goldenAnchors = [
+    { x: 0.14, y: 0.15 },
+    { x: 0.86, y: 0.22 },
+    { x: 0.84, y: 0.82 },
+    { x: 0.16, y: 0.80 },
+    { x: 0.78, y: 0.45 },
+    { x: 0.22, y: 0.55 }
   ];
   
   while (curTime < maxTime) {
-    // حساب المدة بين الانتقالات (Dwell duration)
-    const rawInterval = CONFIG.watermark.minInterval + rng() * (CONFIG.watermark.maxInterval - CONFIG.watermark.minInterval);
-    const dwellDuration = rawInterval / state.transitSpeedMultiplier;
-    const dwellEnd = curTime + dwellDuration;
+    let dwellDuration = 4.0;
+    let transitDuration = 1.0;
+    let nextX = 0.5, nextY = 0.5;
     
-    // حساب مدة حركة الانتقال (Transit duration)
-    const transitDuration = CONFIG.watermark.minTransitDuration + rng() * (CONFIG.watermark.maxTransitDuration - CONFIG.watermark.minTransitDuration);
-    const transitEnd = dwellEnd + transitDuration;
-    
-    // موقع جديد حسب مسار الحركة المحدد
-    let nextX, nextY;
-    if (state.movementPath === 'corners') {
+    if (state.movementPath === 'glide') {
+      // انزلاق سينمائي: وقفات قصيرة وانتقالات طويلة ناعمة جداً
+      dwellDuration = (2.2 + rng() * 1.6) / state.transitSpeedMultiplier;
+      transitDuration = (1.6 + rng() * 1.2) / state.transitSpeedMultiplier;
+      const g = goldenAnchors[cornerIdx % goldenAnchors.length];
+      cornerIdx++;
+      nextX = Math.max(0.08, Math.min(0.92, g.x + (rng() * 0.08 - 0.04)));
+      nextY = Math.max(0.08, Math.min(0.92, g.y + (rng() * 0.08 - 0.04)));
+    } else if (state.movementPath === 'bounce') {
+      // ارتداد زنبركي: قفزة سريعة للأركان مع ثبات حركي
+      dwellDuration = (3.2 + rng() * 2.2) / state.transitSpeedMultiplier;
+      transitDuration = (0.75 + rng() * 0.4) / state.transitSpeedMultiplier;
+      const c = cornerPositions[cornerIdx % 4];
+      cornerIdx++;
+      nextX = Math.max(0.07, Math.min(0.93, c.x + (rng() * 0.05 - 0.025)));
+      nextY = Math.max(0.07, Math.min(0.93, c.y + (rng() * 0.05 - 0.025)));
+    } else if (state.movementPath === 'orbit') {
+      // مدار لانهائي: دوران فلكي متدفق على شكل مسار ليساجو
+      dwellDuration = (1.8 + rng() * 1.2) / state.transitSpeedMultiplier;
+      transitDuration = (1.5 + rng() * 1.0) / state.transitSpeedMultiplier;
+      orbitAngle += 0.85 + rng() * 0.4;
+      nextX = 0.5 + 0.38 * Math.sin(orbitAngle);
+      nextY = 0.5 + 0.36 * Math.sin(orbitAngle * 2) * 0.9;
+    } else if (state.movementPath === 'wave') {
+      // تموج عائم: حركة مائية أورجانيك هادئة
+      dwellDuration = (2.5 + rng() * 1.8) / state.transitSpeedMultiplier;
+      transitDuration = (1.8 + rng() * 1.2) / state.transitSpeedMultiplier;
+      const wavePhase = curTime * 0.35 + rng() * 0.5;
+      nextX = 0.5 + 0.36 * Math.cos(wavePhase) + 0.05 * Math.sin(wavePhase * 2.3);
+      nextY = 0.5 + 0.36 * Math.sin(wavePhase * 1.2) + 0.04 * Math.cos(wavePhase * 1.9);
+    } else if (state.movementPath === 'stealth') {
+      // شبح ذكي: وقفات طويلة وتلاشٍ سريع فجائي
+      dwellDuration = (5.5 + rng() * 3.0) / state.transitSpeedMultiplier;
+      transitDuration = (0.65 + rng() * 0.35) / state.transitSpeedMultiplier;
+      const c = cornerPositions[cornerIdx % 4];
+      cornerIdx += (1 + Math.floor(rng() * 2));
+      nextX = c.x;
+      nextY = c.y;
+    } else {
+      // عشوائي تيك توك كلاسيك
+      const rawInterval = CONFIG.watermark.minInterval + rng() * (CONFIG.watermark.maxInterval - CONFIG.watermark.minInterval);
+      dwellDuration = rawInterval / state.transitSpeedMultiplier;
+      transitDuration = (CONFIG.watermark.minTransitDuration + rng() * (CONFIG.watermark.maxTransitDuration - CONFIG.watermark.minTransitDuration)) / state.transitSpeedMultiplier;
+      
       const c = cornerPositions[cornerIdx % cornerPositions.length];
       cornerIdx++;
-      nextX = Math.max(0.06, Math.min(0.94, c.x + (rng() * 0.08 - 0.04)));
-      nextY = Math.max(0.06, Math.min(0.94, c.y + (rng() * 0.08 - 0.04)));
-    } else if (state.movementPath === 'drift') {
-      const angle = (curTime * 0.45) + rng() * 0.4;
-      nextX = 0.5 + 0.38 * Math.cos(angle);
-      nextY = 0.5 + 0.38 * Math.sin(angle * 1.35);
-    } else {
-      // عشوائي تيك توك ذكي
-      nextX = rng();
-      nextY = rng();
+      nextX = Math.max(0.08, Math.min(0.92, c.x + (rng() * 0.12 - 0.06)));
+      nextY = Math.max(0.08, Math.min(0.92, c.y + (rng() * 0.12 - 0.06)));
     }
     
-    // زاوية دوران ديناميكية حسب الميلان المحدد
+    const dwellEnd = curTime + dwellDuration;
+    const transitEnd = dwellEnd + transitDuration;
+    
+    // زاوية دوران ديناميكية
     const tiltDeg = (rng() * 2 - 1) * state.tiltMaxAngle;
     const nextRot = tiltDeg * (Math.PI / 180);
     
-    // مقياس حجم عشوائي بين 0.92 و 1.12
+    // مقياس حجم متنوع
     const nextScale = CONFIG.watermark.scaleVariationMin + rng() * (CONFIG.watermark.scaleVariationMax - CONFIG.watermark.scaleVariationMin);
     
     waypoints.push({
@@ -201,7 +295,7 @@ function generateWaypointsTimeline() {
 }
 
 /**
- * حساب حالة العلامة المائية عند أي ثانية t بدقة مطلقة
+ * حساب حالة العلامة المائية عند أي ثانية t بدقة وفيزيائية مطلقة
  */
 function getWatermarkStateAtTime(t) {
   if (state.waypoints.length === 0) {
@@ -213,7 +307,7 @@ function getWatermarkStateAtTime(t) {
   let high = state.waypoints.length - 1;
   let seg = state.waypoints[0];
   
-  // بحث ثنائي سريع لإيجاد الشريحة الزمنية المناسبة
+  // بحث ثنائي فائق السرعة O(log N)
   while (low <= high) {
     const mid = (low + high) >> 1;
     const item = state.waypoints[mid];
@@ -231,14 +325,25 @@ function getWatermarkStateAtTime(t) {
   let yRatio = seg.startY;
   let rot = seg.startRot;
   let scale = seg.startScale;
+  let transitProgress = 0;
+  let isMoving = false;
   
   if (safeT >= seg.dwellEnd && safeT < seg.transitEnd && seg.transitDuration > 0) {
-    const rawProgress = (safeT - seg.dwellEnd) / seg.transitDuration;
-    const eased = easeInOutCubic(Math.min(1, Math.max(0, rawProgress)));
+    isMoving = true;
+    transitProgress = (safeT - seg.dwellEnd) / seg.transitDuration;
+    const eased = applySelectedEasing(transitProgress, state.easingType);
+    
     xRatio = seg.startX + (seg.targetX - seg.startX) * eased;
     yRatio = seg.startY + (seg.targetY - seg.startY) * eased;
     rot = seg.startRot + (seg.targetRot - seg.startRot) * eased;
     scale = seg.startScale + (seg.targetScale - seg.startScale) * eased;
+    
+    // ميلان حركي ذكي يتجه تلقائياً مع زاوية وسرعة السير (Dynamic Directional Banking)
+    if (state.tiltMaxAngle > 0) {
+      const travelDirX = Math.sign(seg.targetX - seg.startX) || 1;
+      const bankFactor = Math.sin(transitProgress * Math.PI); // قمة الميلان في منتصف المسافة
+      rot += travelDirX * (state.tiltMaxAngle * (Math.PI / 180)) * bankFactor * 0.8;
+    }
   } else if (safeT >= seg.transitEnd) {
     xRatio = seg.targetX;
     yRatio = seg.targetY;
@@ -246,12 +351,60 @@ function getWatermarkStateAtTime(t) {
     scale = seg.targetScale;
   }
   
+  // التنفس والطفو الحي (Living Micro-Breathing): تموج لطيف مجهري يمنع الجمود نهائياً
+  if (state.microBreathing) {
+    const breatheFloatX = Math.sin(safeT * 2.1) * 0.0035;
+    const breatheFloatY = Math.cos(safeT * 1.7) * 0.0045;
+    const breatheScale = Math.sin(safeT * 2.4) * 0.016; // تنفس 1.6% طبيعي
+    xRatio += breatheFloatX;
+    yRatio += breatheFloatY;
+    scale *= (1 + breatheScale);
+  }
+  
   // حساب نبض الشفافية الجيبي المستمر
   const pulseFreq = (2 * Math.PI) / (CONFIG.watermark.pulsePeriodSeconds / state.pulseSpeedMultiplier);
   const sineFactor = (Math.sin(safeT * pulseFreq) + 1) / 2; // بين 0 و 1
-  const alpha = CONFIG.watermark.minPulseAlpha + sineFactor * (state.maxPulseAlpha - CONFIG.watermark.minPulseAlpha);
+  let alpha = CONFIG.watermark.minPulseAlpha + sineFactor * (state.maxPulseAlpha - CONFIG.watermark.minPulseAlpha);
   
-  return { xRatio, yRatio, rot, scale, alpha };
+  // تأثير التلاشي الشبحي (Stealth Warp Teleport)
+  if (state.movementPath === 'stealth' && isMoving) {
+    const warpAlpha = Math.abs(transitProgress - 0.5) * 2;
+    alpha *= Math.max(0.04, warpAlpha);
+  }
+  
+  // تطبيق تمبلتس ظهور ومظهر اللوجو الاحترافية (Logo Appearance Templates)
+  const appTemplate = state.appearanceTemplate || 'neon';
+  if (appTemplate === 'neon') {
+    // نيون تيك توك: نبض قوي حيوي بين 0.65 و 0.95
+    alpha = 0.65 + sineFactor * 0.30;
+  } else if (appTemplate === 'cinematic') {
+    // تنفس سينمائي: زووم هادئ وتنفس فخم
+    const cineBreath = Math.sin(safeT * 1.8) * 0.04;
+    scale *= (1 + cineBreath);
+    alpha = 0.62 + sineFactor * 0.22;
+  } else if (appTemplate === 'shield') {
+    // درع حماية: شفافية ثابتة وبارزة 92% مانعة للاقتصاص والسرقة
+    alpha = 0.92;
+  } else if (appTemplate === 'glass') {
+    // كريستال نقي: مظهر زجاجي شفاف 48% راقٍ كالقنوات التلفزيونية
+    alpha = 0.44 + sineFactor * 0.10;
+  } else if (appTemplate === 'flash') {
+    // وميض خاطف: وميض ونبضات ضوئية خاطفة دورية كل 2.5 ثانية
+    const flashCycle = (safeT * 1.5) % 2.5;
+    if (flashCycle < 0.35) {
+      alpha = 0.98;
+      scale *= 1.07;
+    } else {
+      alpha = 0.58 + sineFactor * 0.15;
+    }
+  } else if (appTemplate === 'water') {
+    // طفو مائي: تمايل مائي انسيابي ونعومة متدفقة
+    rot += Math.sin(safeT * 1.8) * 0.04;
+    scale *= (1 + Math.cos(safeT * 1.5) * 0.025);
+    alpha = 0.52 + sineFactor * 0.22;
+  }
+  
+  return { xRatio, yRatio, rot, scale, alpha, isMoving, transitProgress };
 }
 
 // ============================================================================
@@ -345,7 +498,8 @@ function hideSecurityTaintModal() {
  * تحميل وتطبيق اللوجو الافتراضي الأصلي PNG من الاستس (PNG فقط وليس SVG)
  */
 /**
- * تحميل وتطبيق اللوجو الافتراضي مباشرة من ملف assets/logo.png في المجلد
+ * تحميل وتطبيق اللوجو الافتراضي مباشرة من مجلد assets
+ * يدعم كلاً من Data URL المحول تلقائياً من assets/logo.js أو الملف المباشر assets/logo.png
  */
 function loadDefaultLogo(forceRefresh = false) {
   const logoThumb = document.getElementById('logoThumbnailImg');
@@ -354,7 +508,39 @@ function loadDefaultLogo(forceRefresh = false) {
   const logoDimensions = document.getElementById('logoDimensions');
   const resetBtn = document.getElementById('resetDefaultLogoBtn');
   
-  // توليد مسار الملف مع تخطي الكاش لضمان قراءة أي تعديل يجريه المستخدم على assets/logo.png
+  // الأولوية الأولى: إذا كان اللوجو محملاً من assets/logo.js كـ Data URL نقي 100%
+  if (typeof window !== 'undefined' && window.ASSETS_LOGO_DATA) {
+    const img = new Image();
+    img.onload = () => {
+      state.logoImg = img;
+      state.isLogoLoaded = true;
+      state.isUsingCustomLogo = false;
+      state.logoDataUrl = window.ASSETS_LOGO_DATA;
+      
+      resetToFreshCanvas();
+      
+      if (logoThumb) logoThumb.src = img.src;
+      if (logoStatusBadge) {
+        logoStatusBadge.textContent = 'لوجو assets/logo.png مطبق وجاهز ✅';
+        logoStatusBadge.style.color = '#34d399';
+      }
+      if (logoFileName) logoFileName.textContent = 'assets/logo.png (الافتراضي)';
+      if (logoDimensions) logoDimensions.textContent = `${img.naturalWidth} × ${img.naturalHeight} بكسل (نقي للتصدير)`;
+      if (resetBtn) resetBtn.style.display = 'none';
+      
+      if (forceRefresh) {
+        showToast('تمت قراءة وتطبيق اللوجو من assets/logo.png بنجاح ✅', 'success');
+      }
+      
+      if (state.canvas && state.ctx) {
+        drawCanvasFrame(state.sourceVideo ? state.sourceVideo.currentTime : 0);
+      }
+    };
+    img.src = window.ASSETS_LOGO_DATA;
+    return;
+  }
+  
+  // الأولوية الثانية: قراءة ملف assets/logo.png مباشرة من المجلد
   const timestamp = Date.now();
   const logoPath = `assets/logo.png?t=${timestamp}`;
   
@@ -370,21 +556,19 @@ function loadDefaultLogo(forceRefresh = false) {
       logoStatusBadge.style.color = '#34d399';
     }
     if (logoFileName) logoFileName.textContent = 'assets/logo.png';
-    if (logoDimensions) logoDimensions.textContent = `${img.naturalWidth} × ${img.naturalHeight} بكسل (PNG)`;
+    if (logoDimensions) logoDimensions.textContent = `${img.naturalWidth} × ${img.naturalHeight} بكسل`;
     if (resetBtn) resetBtn.style.display = 'none';
     
     if (forceRefresh) {
       showToast('تمت قراءة وتحديث اللوجو من assets/logo.png بنجاح ✅', 'success');
     }
     
-    // تحديث فوري للكانفس
     if (state.canvas && state.ctx) {
       drawCanvasFrame(state.sourceVideo ? state.sourceVideo.currentTime : 0);
     }
   };
   
   img.onerror = () => {
-    // في حال عدم دعم البارامترات على بعض متصفحات بروتوكول file:// نطلب المسار المباشر بدون بارامتر
     const directImg = new Image();
     directImg.onload = () => {
       state.logoImg = directImg;
@@ -396,7 +580,7 @@ function loadDefaultLogo(forceRefresh = false) {
         logoStatusBadge.style.color = '#34d399';
       }
       if (logoFileName) logoFileName.textContent = 'assets/logo.png';
-      if (logoDimensions) logoDimensions.textContent = `${directImg.naturalWidth} × ${directImg.naturalHeight} بكسل (PNG)`;
+      if (logoDimensions) logoDimensions.textContent = `${directImg.naturalWidth} × ${directImg.naturalHeight} بكسل`;
       if (resetBtn) resetBtn.style.display = 'none';
       if (forceRefresh) {
         showToast('تمت قراءة وتحديث اللوجو من assets/logo.png بنجاح ✅', 'success');
@@ -529,12 +713,19 @@ function generateFallbackLogoDataUrl() {
   img.onload = () => {
     state.logoImg = img;
     state.isLogoLoaded = true;
-    document.getElementById('logoThumbnailImg').src = dataUrl;
-    document.getElementById('logoStatusBadge').textContent = 'لوجو إيلين الافتراضي ✅';
-    document.getElementById('logoStatusBadge').style.color = '#34d399';
-    document.getElementById('logoFileName').textContent = 'دكان إيلين (افتراضي جاهز)';
-    document.getElementById('logoDimensions').textContent = '512 × 512 بكسل (عالي الدقة)';
-    document.getElementById('logoDropzone').classList.add('filled');
+    const thumb = document.getElementById('logoThumbnailImg');
+    const badge = document.getElementById('logoStatusBadge');
+    const fName = document.getElementById('logoFileName');
+    const dims = document.getElementById('logoDimensions');
+    const dropzone = document.getElementById('logoDropzone');
+    if (thumb) thumb.src = dataUrl;
+    if (badge) {
+      badge.textContent = 'لوجو إيلين الافتراضي ✅';
+      badge.style.color = '#34d399';
+    }
+    if (fName) fName.textContent = 'دكان إيلين (افتراضي جاهز)';
+    if (dims) dims.textContent = '512 × 512 بكسل (عالي الدقة)';
+    if (dropzone) dropzone.classList.add('filled');
   };
   img.src = dataUrl;
 }
@@ -632,12 +823,12 @@ function handleUserVideoFile(file) {
     const openExportBtn = document.getElementById('openExportModalBtn');
     const placeholder = document.getElementById('canvasPlaceholder');
     
-    videoDropzone.classList.add('filled');
-    videoInfoPill.classList.add('show');
-    videoNameText.textContent = file.name;
-    videoDimText.textContent = `${video.videoWidth} × ${video.videoHeight}`;
-    videoDurationText.textContent = formatTime(video.duration);
-    openExportBtn.removeAttribute('disabled');
+    if (videoDropzone) videoDropzone.classList.add('filled');
+    if (videoInfoPill) videoInfoPill.classList.add('show');
+    if (videoNameText) videoNameText.textContent = file.name;
+    if (videoDimText) videoDimText.textContent = `${video.videoWidth} × ${video.videoHeight} (${formatTime(video.duration)})`;
+    if (videoDurationText) videoDurationText.textContent = formatTime(video.duration);
+    if (openExportBtn) openExportBtn.removeAttribute('disabled');
     if (placeholder) placeholder.style.display = 'none';
     
     // تجهيز مسار الحركة المتطابق
@@ -806,6 +997,81 @@ function setupCanvasDimensions() {
 // ============================================================================
 // 9. حلقة الرسم على الكانفس ومزامنة الفريمات (Render Loop & Frame Drawing)
 // ============================================================================
+function drawMotionPathPreview(ctx, canvas, timeInSeconds, safeWidth, safeHeight, marginX, marginY) {
+  if (state.waypoints.length === 0) return;
+  
+  ctx.save();
+  ctx.lineWidth = Math.max(2, Math.round(canvas.width * 0.0025));
+  ctx.setLineDash([8, 8]);
+  ctx.strokeStyle = 'rgba(37, 244, 238, 0.4)';
+  ctx.shadowColor = '#25f4ee';
+  ctx.shadowBlur = 8;
+  
+  // رسم منحنى مسار الحركة المتدفق للأمام
+  ctx.beginPath();
+  const sampleCount = 60;
+  for (let i = 0; i <= sampleCount; i++) {
+    const t = timeInSeconds + (i / sampleCount) * 10;
+    const p = getWatermarkStateAtTime(t);
+    const px = marginX + p.xRatio * safeWidth;
+    const py = marginY + p.yRatio * safeHeight;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  
+  // رسم نقاط التوقف (Waypoints Anchors)
+  for (let i = 0; i < Math.min(6, state.waypoints.length); i++) {
+    const wp = state.waypoints[i];
+    const ax = marginX + wp.targetX * safeWidth;
+    const ay = marginY + wp.targetY * safeHeight;
+    ctx.beginPath();
+    ctx.arc(ax, ay, Math.max(4, Math.round(canvas.width * 0.005)), 0, Math.PI * 2);
+    ctx.fillStyle = i % 2 === 0 ? '#fe2c55' : '#25f4ee';
+    ctx.shadowBlur = 6;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function updateTelemetryBar(wm) {
+  const modeEl = document.getElementById('telemetryModeText');
+  const posEl = document.getElementById('telemetryPosText');
+  const stateEl = document.getElementById('telemetryStateText');
+  
+  if (modeEl) {
+    const modeNames = {
+      random: 'حركة: تيك توك 🎵',
+      glide: 'حركة: انزلاق 🚀',
+      bounce: 'حركة: ارتداد ⚡',
+      orbit: 'حركة: مدار ♾️',
+      wave: 'حركة: أمواج 🌊',
+      stealth: 'حركة: شبح 👻'
+    };
+    modeEl.textContent = modeNames[state.movementPath] || 'حركة: تيك توك';
+  }
+  
+  if (posEl) {
+    const px = Math.round(wm.xRatio * 100);
+    const py = Math.round(wm.yRatio * 100);
+    posEl.textContent = `X: ${px}% · Y: ${py}%`;
+  }
+  
+  if (stateEl) {
+    const appNames = {
+      neon: 'مظهر: نيون متوهج ✨',
+      cinematic: 'مظهر: تنفس سينمائي 🎬',
+      shield: 'مظهر: درع حماية 🛡️',
+      glass: 'مظهر: كريستال نقي 💎',
+      flash: 'مظهر: وميض خاطف ⚡',
+      water: 'مظهر: طفو مائي 💧'
+    };
+    stateEl.textContent = appNames[state.appearanceTemplate] || 'مظهر: نيون';
+    stateEl.style.color = state.appearanceTemplate === 'shield' ? 'var(--tiktok-pink)' : 'var(--tiktok-cyan)';
+  }
+}
+
 function drawCanvasFrame(timeInSeconds) {
   const canvas = state.canvas;
   const ctx = state.ctx;
@@ -833,18 +1099,59 @@ function drawCanvasFrame(timeInSeconds) {
     const posX = marginX + wm.xRatio * safeWidth;
     const posY = marginY + wm.yRatio * safeHeight;
     
+    // 3. رسم خطوط مسار الحركة التفاعلية إن كانت مفعلة في المعاينة
+    if (state.showPathPreview && !state.isExporting) {
+      drawMotionPathPreview(ctx, canvas, timeInSeconds, safeWidth, safeHeight, marginX, marginY);
+    }
+    
     ctx.save();
     ctx.translate(posX, posY);
     ctx.rotate(wm.rot);
-    ctx.globalAlpha = Math.min(1, Math.max(0.05, wm.alpha));
+    ctx.globalAlpha = Math.min(1, Math.max(0.04, wm.alpha));
     
-    // تأثير التوهج والظل النيوني لتحسين وضوح اللوجو على أي خلفية
-    if (state.glowIntensity > 0) {
-      const glowScale = state.glowIntensity / 100;
+    // 4. تطبيق تمبلت ظهور ومظهر اللوجو المختار بدقة هندسية وجمالية فائقة
+    const appTemplate = state.appearanceTemplate || 'neon';
+    
+    if (appTemplate === 'neon') {
+      // نيون تيك توك: توهج سيان ووردي مشع وعالي الجاذبية
+      ctx.shadowColor = wm.isMoving ? '#fe2c55' : '#25f4ee';
+      ctx.shadowBlur = Math.round(logoWidth * 0.18);
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    } else if (appTemplate === 'cinematic') {
+      // تنفس سينمائي: ظل داكن ناعم وعميق
       ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-      ctx.shadowBlur = Math.round(logoWidth * 0.12 * glowScale);
-      ctx.shadowOffsetX = Math.round(2 * glowScale);
-      ctx.shadowOffsetY = Math.round(3 * glowScale);
+      ctx.shadowBlur = Math.round(logoWidth * 0.14);
+      ctx.shadowOffsetX = Math.round(logoWidth * 0.02);
+      ctx.shadowOffsetY = Math.round(logoWidth * 0.03);
+    } else if (appTemplate === 'shield') {
+      // درع حماية: ظل أسود حاد ومكثف 100% لمنع ضياع اللوجو في الخلفيات الساطعة أو المعقدة
+      ctx.shadowColor = '#000000';
+      ctx.shadowBlur = Math.round(logoWidth * 0.08);
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    } else if (appTemplate === 'glass') {
+      // كريستال نقي: لمعان زجاجي فخم وشفاف
+      ctx.shadowColor = 'rgba(255, 255, 255, 0.3)';
+      ctx.shadowBlur = Math.round(logoWidth * 0.05);
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    } else if (appTemplate === 'flash') {
+      // وميض خاطف: توهج خاطف أبيض/سيان مشع
+      const flashCycle = (timeInSeconds * 1.5) % 2.5;
+      if (flashCycle < 0.35) {
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = Math.round(logoWidth * 0.28);
+      } else {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        ctx.shadowBlur = Math.round(logoWidth * 0.10);
+      }
+    } else if (appTemplate === 'water') {
+      // طفو مائي: توهج مائي أزرق سماوي ناعم
+      ctx.shadowColor = 'rgba(37, 244, 238, 0.35)';
+      ctx.shadowBlur = Math.round(logoWidth * 0.16);
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = Math.round(logoWidth * 0.02);
     }
     
     ctx.drawImage(
@@ -855,6 +1162,11 @@ function drawCanvasFrame(timeInSeconds) {
       logoHeight
     );
     ctx.restore();
+    
+    // 5. تحديث مؤشرات التتبع الحية على نافذة المعاينة
+    if (!state.isExporting) {
+      updateTelemetryBar(wm);
+    }
   }
 }
 
@@ -917,7 +1229,8 @@ function setupAudioGraph() {
     source.connect(speakerGain);   // متصل بالسماعات
     speakerGain.connect(actx.destination);
     
-    speakerGain.gain.value = 1.0;
+    // همس غير مسموع إطلاقاً (-80dB) يمنع نوم ساعة الصوت في المتصفح وتجمد الفيديو
+    speakerGain.gain.value = 0.0001;
     
     state.audioCtx = actx;
     state.audioSourceNode = source;
@@ -954,9 +1267,9 @@ async function startVideoExport() {
     await state.audioCtx.resume();
   }
   
-  // كتم الصوت الخارجي لتسجيل صامت مريح
+  // كتم الصوت الخارجي لتسجيل صامت مريح مع الحفاظ على ساعة الصوت نشطة
   if (state.audioSpeakerGain) {
-    state.audioSpeakerGain.gain.value = 0;
+    state.audioSpeakerGain.gain.value = 0.0001;
   }
   
   // تفعيل وضع التصدير وتعطيل أزرار الواجهة
@@ -998,6 +1311,7 @@ async function startVideoExport() {
     exportFpsText.textContent = `معدل الإطارات: ${targetFps} FPS (مطابق للمصدر 100%)`;
   }
   
+  // ربط الصوت الصامت النظيف من AudioContext بدون تعارضات
   if (state.audioDestNode && state.audioDestNode.stream) {
     const audioTracks = state.audioDestNode.stream.getAudioTracks();
     if (audioTracks.length > 0) {
@@ -1013,12 +1327,12 @@ async function startVideoExport() {
   const selectedMime = detectBestSupportedMimeType();
   state.bestMimeType = selectedMime;
   
-  // حساب معدل بت احترافي متوازن يمنع اختناق المشفر ويضمن سلاسة مطلقة ونقاء كريستالي
-  let optimalBitrate = 7000000; // 7 Mbps لـ 1080p
+  // معدل بت متوازن يمنع امتلاء ذاكرة التخزين المؤقت للمشفر ويمنع التوقف نهائياً
+  let optimalBitrate = 5500000; // 5.5 Mbps لـ 1080p
   if (canvas.width * canvas.height > 1920 * 1080) {
-    optimalBitrate = 14000000; // 14 Mbps لـ 4K
+    optimalBitrate = 12000000; // 12 Mbps لـ 4K
   } else if (canvas.width * canvas.height <= 1280 * 720) {
-    optimalBitrate = 3800000;  // 3.8 Mbps لـ 720p
+    optimalBitrate = 3200000;  // 3.2 Mbps لـ 720p
   }
   
   let recorder;
@@ -1058,21 +1372,19 @@ async function startVideoExport() {
     finishExport(true);
   };
   
-  // مزامنة فريمات الفيديو مع مخرجات مفكك التشفير الحقيقية مباشرة دون تداخل
+  // حلقة رسم انسيابية موحدة لا تنقطع طوال فترة التصدير مع معزز فريمات كرت الشاشة
   let exportAnimFrameId = null;
-  const syncExportFrames = (now, metadata) => {
-    if (!state.isExporting) return;
-    drawCanvasFrame(metadata.mediaTime);
-    if (!video.ended && !video.paused) {
-      video.requestVideoFrameCallback(syncExportFrames);
-    }
+  const exportLoop = () => {
+    if (!state.isExporting || video.ended) return;
+    drawCanvasFrame(video.currentTime);
+    exportAnimFrameId = requestAnimationFrame(exportLoop);
   };
   
-  const fallbackExportFrames = () => {
-    if (!state.isExporting) return;
-    drawCanvasFrame(video.currentTime);
-    if (!video.ended && !video.paused) {
-      exportAnimFrameId = requestAnimationFrame(fallbackExportFrames);
+  const onVideoFrameCallback = (now, metadata) => {
+    if (!state.isExporting || video.ended) return;
+    drawCanvasFrame(metadata.mediaTime);
+    if ('requestVideoFrameCallback' in video) {
+      video.requestVideoFrameCallback(onVideoFrameCallback);
     }
   };
   
@@ -1085,47 +1397,49 @@ async function startVideoExport() {
     
     video.removeEventListener('ended', onEnded);
     if (progressTimer) clearInterval(progressTimer);
-    if (exportAnimFrameId) cancelAnimationFrame(exportAnimFrameId);
+    if (exportAnimFrameId) {
+      cancelAnimationFrame(exportAnimFrameId);
+      exportAnimFrameId = null;
+    }
     
-    document.getElementById('exportStatusText').textContent = 'جاري إنهاء وتفريغ الملف بجودة مطابقة للمصدر...';
+    // رسم الفريم الأخير الكامل حتى نهاية الفيديو بدقة
+    drawCanvasFrame(video.duration || video.currentTime);
+    
+    document.getElementById('exportStatusText').textContent = 'جاري إنهاء وتفريغ الملف بجودة مطابقة للمصدر 100%...';
     
     setTimeout(() => {
       if (recorder.state !== 'inactive') {
         recorder.stop();
       }
-    }, 250);
+    }, 60);
   };
   
   const startRecordingFlow = () => {
-    // رسم الفريم الأول فوراً عند الزمن 0
+    // رسم الفريم الأول عند الزمن 0
     drawCanvasFrame(0);
     
-    // مهلة استقرار قصيرة 100ms لضمان بدء التسجيل والمشفر بسلاسة
-    setTimeout(() => {
+    // تشغيل الفيديو ثم بدء المسجل فوراً بمجرد تأكيد انطلاق المشغل
+    video.play().then(() => {
       state.exportStartTime = performance.now();
       
       try {
-        recorder.start(500); // تفريغ القطع بانتظام
+        recorder.start(1000); // تفريغ القطع بانتظام كل 1 ثانية
       } catch (recErr) {
         showToast(`فشل بدء مسجل الوسائط: ${recErr.message}`, 'error');
         finishExport(false);
         return;
       }
       
+      // انطلاق حلقة الرسم المستمرة مع دوران الفيديو
+      exportAnimFrameId = requestAnimationFrame(exportLoop);
       if ('requestVideoFrameCallback' in video) {
-        video.requestVideoFrameCallback(syncExportFrames);
-      } else {
-        exportAnimFrameId = requestAnimationFrame(fallbackExportFrames);
+        video.requestVideoFrameCallback(onVideoFrameCallback);
       }
-      
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          showToast(`تعذر تشغيل الفيديو تلقائياً: ${err.message}`, 'error');
-          finishExport(false);
-        });
-      }
-    }, 100);
+    }).catch((err) => {
+      showToast(`تعذر تشغيل الفيديو: ${err.message}`, 'error');
+      finishExport(false);
+      return;
+    });
     
     // متابعة التقدم كل 250ms
     if (progressTimer) clearInterval(progressTimer);
@@ -1139,8 +1453,8 @@ async function startVideoExport() {
       const duration = video.duration || 1;
       const percent = Math.min(100, Math.max(0, (current / duration) * 100));
       
-      // تفقد الوصول لنهاية الفيديو في حال تأخر حدث ended
-      if (current >= duration - 0.06 && duration > 0.5) {
+      // تفقد الوصول لنهاية الفيديو فقط عند اكتمال مدة الفيديو الحقيقية كاملة
+      if (video.ended || (current >= duration - 0.02 && duration > 0.5)) {
         onEnded();
         return;
       }
@@ -1173,27 +1487,21 @@ async function startVideoExport() {
   video.addEventListener('ended', onEnded);
   video.pause();
   
-  // معالجة الانتقال إلى بداية الفيديو بأمان (إن كان الفيديو عند 0 بالفعل، نبدأ مباشرة)
-  if (Math.abs(video.currentTime) < 0.05) {
+  // معالجة الانتقال إلى بداية الفيديو بأمان
+  let seekStarted = false;
+  const onSeekedReady = () => {
+    if (seekStarted) return;
+    seekStarted = true;
+    video.removeEventListener('seeked', onSeekedReady);
     startRecordingFlow();
+  };
+  
+  if (Math.abs(video.currentTime) < 0.05) {
+    onSeekedReady();
   } else {
-    let seekTriggered = false;
-    const handleSeeked = () => {
-      if (seekTriggered) return;
-      seekTriggered = true;
-      video.removeEventListener('seeked', handleSeeked);
-      startRecordingFlow();
-    };
-    
-    video.addEventListener('seeked', handleSeeked, { once: true });
+    video.addEventListener('seeked', onSeekedReady, { once: true });
     video.currentTime = 0;
-    
-    // حارس أمان: إذا لم يطلق المتصفح حدث seeked خلال 350ms، نبدأ فوراً
-    setTimeout(() => {
-      if (!seekTriggered && state.isExporting) {
-        handleSeeked();
-      }
-    }, 350);
+    setTimeout(onSeekedReady, 350);
   }
 }
 
@@ -1472,40 +1780,51 @@ document.addEventListener('DOMContentLoaded', () => {
   // -------------------------------------------------------------
   const sizeSlider = document.getElementById('sizeSlider');
   const sizeValText = document.getElementById('sizeValText');
-  sizeSlider.addEventListener('input', (e) => {
-    state.logoSizePercent = parseInt(e.target.value, 10);
-    sizeValText.textContent = `${state.logoSizePercent}%`;
-  });
+  if (sizeSlider) {
+    sizeSlider.addEventListener('input', (e) => {
+      state.logoSizePercent = parseInt(e.target.value, 10);
+      if (sizeValText) sizeValText.textContent = `${state.logoSizePercent}%`;
+      if (state.canvas && state.ctx) {
+        drawCanvasFrame(state.sourceVideo ? state.sourceVideo.currentTime : 0);
+      }
+    });
+  }
   
   const transitSpeedSlider = document.getElementById('transitSpeedSlider');
   const transitSpeedValText = document.getElementById('transitSpeedValText');
-  transitSpeedSlider.addEventListener('input', (e) => {
-    state.transitSpeedMultiplier = parseFloat(e.target.value);
-    transitSpeedValText.textContent = `×${state.transitSpeedMultiplier.toFixed(1)}`;
-    generateWaypointsTimeline(); // إعادة بناء الجدول الزمني فورياً
-  });
+  if (transitSpeedSlider) {
+    transitSpeedSlider.addEventListener('input', (e) => {
+      state.transitSpeedMultiplier = parseFloat(e.target.value);
+      if (transitSpeedValText) transitSpeedValText.textContent = `×${state.transitSpeedMultiplier.toFixed(1)}`;
+      generateWaypointsTimeline();
+    });
+  }
   
   const pulseSpeedSlider = document.getElementById('pulseSpeedSlider');
   const pulseSpeedValText = document.getElementById('pulseSpeedValText');
-  pulseSpeedSlider.addEventListener('input', (e) => {
-    state.pulseSpeedMultiplier = parseFloat(e.target.value);
-    pulseSpeedValText.textContent = `×${state.pulseSpeedMultiplier.toFixed(1)}`;
-  });
+  if (pulseSpeedSlider) {
+    pulseSpeedSlider.addEventListener('input', (e) => {
+      state.pulseSpeedMultiplier = parseFloat(e.target.value);
+      if (pulseSpeedValText) pulseSpeedValText.textContent = `×${state.pulseSpeedMultiplier.toFixed(1)}`;
+    });
+  }
   
   const maxOpacitySlider = document.getElementById('maxOpacitySlider');
   const maxOpacityValText = document.getElementById('maxOpacityValText');
-  maxOpacitySlider.addEventListener('input', (e) => {
-    const val = parseInt(e.target.value, 10);
-    state.maxPulseAlpha = val / 100;
-    maxOpacityValText.textContent = `${val}%`;
-  });
+  if (maxOpacitySlider) {
+    maxOpacitySlider.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      state.maxPulseAlpha = val / 100;
+      if (maxOpacityValText) maxOpacityValText.textContent = `${val}%`;
+    });
+  }
   
   const glowSlider = document.getElementById('glowSlider');
   const glowValText = document.getElementById('glowValText');
   if (glowSlider) {
     glowSlider.addEventListener('input', (e) => {
       state.glowIntensity = parseInt(e.target.value, 10);
-      glowValText.textContent = `${state.glowIntensity}%`;
+      if (glowValText) glowValText.textContent = `${state.glowIntensity}%`;
     });
   }
   
@@ -1514,93 +1833,152 @@ document.addEventListener('DOMContentLoaded', () => {
   if (tiltSlider) {
     tiltSlider.addEventListener('input', (e) => {
       state.tiltMaxAngle = parseInt(e.target.value, 10);
-      tiltValText.textContent = state.tiltMaxAngle === 0 ? 'معطل' : `${state.tiltMaxAngle}°`;
+      if (tiltValText) tiltValText.textContent = state.tiltMaxAngle === 0 ? 'معطل' : `${state.tiltMaxAngle}°`;
       generateWaypointsTimeline();
     });
   }
   
-  // أنماط مسار الحركة
-  const pathOptionBtns = document.querySelectorAll('.path-option-btn');
-  pathOptionBtns.forEach((btn) => {
+  // 1. اختيار تمبلتس مسار الحركة الإبداعي (6 Motion Templates)
+  const motionCards = document.querySelectorAll('.motion-card');
+  motionCards.forEach((card) => {
+    card.addEventListener('click', () => {
+      state.movementPath = card.dataset.path;
+      motionCards.forEach((c) => c.classList.toggle('active', c === card));
+      
+      // ضبط المعايير الفيزيائية المتناسقة مع طبيعة الحركة
+      if (state.movementPath === 'glide') {
+        state.easingType = 'quintic';
+        state.tiltMaxAngle = 6;
+      } else if (state.movementPath === 'bounce') {
+        state.easingType = 'spring';
+        state.tiltMaxAngle = 10;
+      } else if (state.movementPath === 'orbit') {
+        state.easingType = 'quintic';
+        state.tiltMaxAngle = 8;
+      } else if (state.movementPath === 'wave') {
+        state.easingType = 'smooth';
+        state.tiltMaxAngle = 5;
+      } else if (state.movementPath === 'stealth') {
+        state.easingType = 'cubic';
+        state.tiltMaxAngle = 0;
+      } else {
+        state.easingType = 'cubic';
+        state.tiltMaxAngle = 8;
+      }
+      
+      const motionNames = {
+        random: 'تيك توك كلاسيك 🎵',
+        glide: 'انزلاق سينمائي 🚀',
+        bounce: 'ارتداد زنبركي ⚡',
+        orbit: 'مدار لانهائي ♾️',
+        wave: 'أمواج عائمة 🌊',
+        stealth: 'شبح الحماية 👻'
+      };
+      showToast(`تم تفعيل تمبلت الحركة: ${motionNames[state.movementPath] || state.movementPath}`, 'info', 1800);
+      
+      generateWaypointsTimeline();
+      if (state.canvas && state.ctx) {
+        drawCanvasFrame(state.sourceVideo ? state.sourceVideo.currentTime : 0);
+      }
+    });
+  });
+
+  // 2. اختيار تمبلتس ظهور ومظهر اللوجو (6 Logo Appearance Templates)
+  const appearanceCards = document.querySelectorAll('.appearance-card');
+  appearanceCards.forEach((card) => {
+    card.addEventListener('click', () => {
+      state.appearanceTemplate = card.dataset.appearance;
+      appearanceCards.forEach((c) => c.classList.toggle('active', c === card));
+      
+      const appNames = {
+        neon: 'نيون تيك توك ✨',
+        cinematic: 'تنفس سينمائي 🎬',
+        shield: 'درع حماية 🛡️',
+        glass: 'كريستال نقي 💎',
+        flash: 'وميض خاطف ⚡',
+        water: 'طفو مائي 💧'
+      };
+      showToast(`تم تفعيل تمبلت المظهر: ${appNames[state.appearanceTemplate] || state.appearanceTemplate}`, 'info', 1800);
+      
+      if (state.canvas && state.ctx) {
+        drawCanvasFrame(state.sourceVideo ? state.sourceVideo.currentTime : 0);
+      }
+    });
+  });
+
+  // اختيار منحنى التسارع الفيزيائي (4 Easing Curves) إن وُجد
+  const easingBtns = document.querySelectorAll('.easing-btn');
+  const easingValText = document.getElementById('easingValText');
+  const easingLabels = {
+    quintic: 'فائق النعومة (Quintic)',
+    spring: 'ارتدادي مرن (Spring)',
+    cubic: 'انسيابي تيك توك (Cubic)',
+    smooth: 'هادئ ناعم (Hermite)'
+  };
+  easingBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
-      state.movementPath = btn.dataset.path;
-      pathOptionBtns.forEach((b) => b.classList.toggle('active', b === btn));
+      state.easingType = btn.dataset.easing;
+      easingBtns.forEach((b) => b.classList.toggle('active', b === btn));
+      if (easingValText) {
+        easingValText.textContent = easingLabels[state.easingType] || state.easingType;
+      }
       generateWaypointsTimeline();
     });
   });
-  
-  // الأنماط الجاهزة الذكية (Presests)
-  const presetBtns = document.querySelectorAll('.preset-btn');
-  const applyPreset = (presetKey) => {
-    state.activePreset = presetKey;
-    presetBtns.forEach((btn) => btn.classList.toggle('active', btn.dataset.preset === presetKey));
-    
-    if (presetKey === 'classic') {
-      state.logoSizePercent = 20;
-      state.transitSpeedMultiplier = 1.0;
-      state.pulseSpeedMultiplier = 1.0;
-      state.maxPulseAlpha = 0.70;
-      state.movementPath = 'random';
-      state.glowIntensity = 40;
-      state.tiltMaxAngle = 8;
-    } else if (presetKey === 'shield') {
-      state.logoSizePercent = 24;
-      state.transitSpeedMultiplier = 1.4;
-      state.pulseSpeedMultiplier = 1.3;
-      state.maxPulseAlpha = 0.85;
-      state.movementPath = 'random';
-      state.glowIntensity = 60;
-      state.tiltMaxAngle = 10;
-    } else if (presetKey === 'drift') {
-      state.logoSizePercent = 18;
-      state.transitSpeedMultiplier = 0.7;
-      state.pulseSpeedMultiplier = 0.8;
-      state.maxPulseAlpha = 0.60;
-      state.movementPath = 'drift';
-      state.glowIntensity = 30;
-      state.tiltMaxAngle = 4;
-    } else if (presetKey === 'stealth') {
-      state.logoSizePercent = 16;
-      state.transitSpeedMultiplier = 0.5;
-      state.pulseSpeedMultiplier = 0.5;
-      state.maxPulseAlpha = 0.45;
-      state.movementPath = 'random';
-      state.glowIntensity = 0;
-      state.tiltMaxAngle = 0;
-    }
-    
-    // مزامنة عناصر الواجهة مع القيم الجديدة
-    sizeSlider.value = state.logoSizePercent;
-    sizeValText.textContent = `${state.logoSizePercent}%`;
-    transitSpeedSlider.value = state.transitSpeedMultiplier;
-    transitSpeedValText.textContent = `×${state.transitSpeedMultiplier.toFixed(1)}`;
-    pulseSpeedSlider.value = state.pulseSpeedMultiplier;
-    pulseSpeedValText.textContent = `×${state.pulseSpeedMultiplier.toFixed(1)}`;
-    maxOpacitySlider.value = Math.round(state.maxPulseAlpha * 100);
-    maxOpacityValText.textContent = `${maxOpacitySlider.value}%`;
-    
-    if (glowSlider) {
-      glowSlider.value = state.glowIntensity;
-      glowValText.textContent = `${state.glowIntensity}%`;
-    }
-    if (tiltSlider) {
-      tiltSlider.value = state.tiltMaxAngle;
-      tiltValText.textContent = state.tiltMaxAngle === 0 ? 'معطل' : `${state.tiltMaxAngle}°`;
-    }
-    
-    pathOptionBtns.forEach((btn) => btn.classList.toggle('active', btn.dataset.path === state.movementPath));
-    generateWaypointsTimeline();
-  };
-  
-  presetBtns.forEach((btn) => {
-    btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
-  });
+
+  // مفتاح التنفس والطفو الحي (Living Micro-Breathing)
+  const microBreathingToggle = document.getElementById('microBreathingToggle');
+  if (microBreathingToggle) {
+    microBreathingToggle.addEventListener('change', (e) => {
+      state.microBreathing = e.target.checked;
+    });
+  }
+
+  // زر إظهار / إخفاء خطوط مسار الحركة على الكانفس
+  const togglePathPreviewBtn = document.getElementById('togglePathPreviewBtn');
+  const pathPreviewStateText = document.getElementById('pathPreviewStateText');
+  if (togglePathPreviewBtn) {
+    togglePathPreviewBtn.addEventListener('click', () => {
+      state.showPathPreview = !state.showPathPreview;
+      togglePathPreviewBtn.classList.toggle('active', state.showPathPreview);
+      if (pathPreviewStateText) {
+        pathPreviewStateText.textContent = state.showPathPreview ? 'معروض ✅' : 'مخفي';
+      }
+      if (state.canvas && state.ctx) {
+        drawCanvasFrame(state.sourceVideo ? state.sourceVideo.currentTime : 0);
+      }
+    });
+  }
+
+  // زر إعادة الفيديو للبداية (0:00)
+  const restartVideoBtn = document.getElementById('restartVideoBtn');
+  if (restartVideoBtn) {
+    restartVideoBtn.addEventListener('click', () => {
+      if (!state.isVideoReady) return;
+      state.sourceVideo.currentTime = 0;
+      state.pausedVirtualTimeOffset = 0;
+      updateTimelineProgress();
+      if (state.canvas && state.ctx) {
+        drawCanvasFrame(0);
+      }
+    });
+  }
   
   // زر استعادة الإعدادات الافتراضية
-  document.getElementById('resetSettingsBtn').addEventListener('click', () => {
-    applyPreset('classic');
-    showToast('تمت استعادة إعدادات تيك توك الافتراضية', 'info');
-  });
+  const resetSettingsBtn = document.getElementById('resetSettingsBtn');
+  if (resetSettingsBtn) {
+    resetSettingsBtn.addEventListener('click', () => {
+      state.movementPath = 'random';
+      state.appearanceTemplate = 'neon';
+      state.logoSizePercent = 20;
+      if (sizeSlider) sizeSlider.value = 20;
+      if (sizeValText) sizeValText.textContent = '20%';
+      motionCards.forEach((c) => c.classList.toggle('active', c.dataset.path === 'random'));
+      appearanceCards.forEach((c) => c.classList.toggle('active', c.dataset.appearance === 'neon'));
+      generateWaypointsTimeline();
+      showToast('تمت استعادة إعدادات تيك توك الافتراضية', 'info');
+    });
+  }
   
   // -------------------------------------------------------------
   // مشغل الفيديو والتحكم
