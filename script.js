@@ -1001,10 +1001,6 @@ async function startVideoExport() {
     }
   };
   
-  // إيقاف تشغيل الفيديو والرجوع للثانية 0
-  video.pause();
-  video.currentTime = 0;
-  
   let isEndedHandled = false;
   let progressTimer = null;
   
@@ -1025,16 +1021,21 @@ async function startVideoExport() {
     }, 250);
   };
   
-  const onSeeked = () => {
-    video.removeEventListener('seeked', onSeeked);
-    
+  const startRecordingFlow = () => {
     // رسم الفريم الأول فوراً عند الزمن 0
     drawCanvasFrame(0);
     
-    // مهلة استقرار 150ms لضمان استقرار المشفر وبدء التسجيل بدون تقطيع
+    // مهلة استقرار قصيرة 100ms لضمان بدء التسجيل والمشفر بسلاسة
     setTimeout(() => {
       state.exportStartTime = performance.now();
-      recorder.start(500); // تفريغ القطع كل 500ms بانتظام
+      
+      try {
+        recorder.start(500); // تفريغ القطع بانتظام
+      } catch (recErr) {
+        showToast(`فشل بدء مسجل الوسائط: ${recErr.message}`, 'error');
+        finishExport(false);
+        return;
+      }
       
       if ('requestVideoFrameCallback' in video) {
         video.requestVideoFrameCallback(syncExportFrames);
@@ -1042,13 +1043,17 @@ async function startVideoExport() {
         exportAnimFrameId = requestAnimationFrame(fallbackExportFrames);
       }
       
-      video.play().catch((err) => {
-        showToast(`تعذر تشغيل الفيديو تلقائياً: ${err.message}`, 'error');
-        finishExport(false);
-      });
-    }, 150);
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          showToast(`تعذر تشغيل الفيديو تلقائياً: ${err.message}`, 'error');
+          finishExport(false);
+        });
+      }
+    }, 100);
     
     // متابعة التقدم كل 250ms
+    if (progressTimer) clearInterval(progressTimer);
     progressTimer = setInterval(() => {
       if (!state.isExporting) {
         clearInterval(progressTimer);
@@ -1090,8 +1095,31 @@ async function startVideoExport() {
     }, CONFIG.export.progressIntervalMs);
   };
   
-  video.addEventListener('seeked', onSeeked);
   video.addEventListener('ended', onEnded);
+  video.pause();
+  
+  // معالجة الانتقال إلى بداية الفيديو بأمان (إن كان الفيديو عند 0 بالفعل، نبدأ مباشرة)
+  if (Math.abs(video.currentTime) < 0.05) {
+    startRecordingFlow();
+  } else {
+    let seekTriggered = false;
+    const handleSeeked = () => {
+      if (seekTriggered) return;
+      seekTriggered = true;
+      video.removeEventListener('seeked', handleSeeked);
+      startRecordingFlow();
+    };
+    
+    video.addEventListener('seeked', handleSeeked, { once: true });
+    video.currentTime = 0;
+    
+    // حارس أمان: إذا لم يطلق المتصفح حدث seeked خلال 350ms، نبدأ فوراً
+    setTimeout(() => {
+      if (!seekTriggered && state.isExporting) {
+        handleSeeked();
+      }
+    }, 350);
+  }
 }
 
 /**
